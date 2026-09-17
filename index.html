@@ -146,7 +146,7 @@
   }
   if('serviceWorker'in navigator){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('/sw.js?v=14',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=14',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   draw();
