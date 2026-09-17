@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#070b0e"/>
+  <circle cx="256" cy="270" r="158" fill="#10171c" stroke="#ff5a1f" stroke-width="34"/>
+  <path d="M142 300a122 122 0 0 1 228 0" fill="none" stroke="#f6f7f8" stroke-width="28" stroke-linecap="round"/>
+  <path d="M256 300l91-91" stroke="#ff5a1f" stroke-width="31" stroke-linecap="round"/>
+  <circle cx="256" cy="300" r="28" fill="#f6f7f8"/>
+  <text x="256" y="432" text-anchor="middle" fill="#f6f7f8" font-family="Arial,sans-serif" font-size="58" font-weight="800">PANDAs</text>
+</svg>

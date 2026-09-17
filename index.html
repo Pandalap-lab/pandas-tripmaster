@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#ff5a1f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tripmaster">
+  <title>PANDAs Tripmaster</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=6">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=6">
+  <style>
+    :root{color-scheme:dark;--bg:#070b0e;--panel:#10171c;--line:#243039;--muted:#8fa0aa;--white:#f6f7f8;--orange:#ff5a1f;--green:#35d07f;--red:#ff5757}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--white);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif}
+    html,body{overflow:hidden}body{height:100dvh;padding:calc(env(safe-area-inset-top) + 6px) 14px max(4px,calc(env(safe-area-inset-bottom) + 8px - 5mm));overscroll-behavior:none;-webkit-text-size-adjust:100%}
+    button,input{font:inherit}
+    .app{width:100%;height:100%;min-height:0;max-width:620px;margin:auto;display:grid;grid-template-rows:32px minmax(210px,2.35fr) minmax(102px,1.12fr) minmax(102px,1.12fr) minmax(50px,.58fr) minmax(56px,.68fr);align-content:stretch;gap:clamp(7px,1.1dvh,11px)}
+    header{display:flex;justify-content:space-between;align-items:center;height:32px}
+    h1{display:flex;align-items:center;gap:5px;font-size:1rem;letter-spacing:.08em;margin:0;color:var(--muted);white-space:nowrap}
+    .brand{font-weight:850;color:var(--white)}.brand-s{font-size:.68em;text-transform:none}.panda-mark{font-size:.82rem;line-height:1;transform:translateY(-1px)}
+    .gps{display:flex;justify-content:flex-end;align-items:center;gap:7px;width:118px;font-size:.86rem;color:var(--muted);white-space:nowrap}
+    .gps.bad{color:var(--red)}.gps.good{color:var(--green)}
+    .dot{width:9px;height:9px;border-radius:50%;background:#55626a}.dot.good{background:var(--green);box-shadow:0 0 10px #35d07f80}.dot.bad{background:var(--red)}
+    .counter{position:relative;background:linear-gradient(145deg,#141c21,#0d1317);border:1px solid var(--line);border-radius:16px;padding:9px 12px;box-shadow:0 8px 22px #0006;contain:layout;overflow:hidden}
+    .counter.primary{border-color:#6d351e;display:grid;grid-template-rows:auto auto auto;align-content:space-between}
+    .counter.secondary-counter{display:grid;grid-template-rows:auto auto;align-content:space-between}
+    .counter-top{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:start;min-height:53px}
+    .primary .counter-top{min-height:77px}
+    .secondary-counter .counter-top{min-height:50px}
+    .counter-title{padding-top:2px;color:var(--red);font-size:.72rem;font-weight:750;line-height:1.2;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+    .readout{min-width:0}
+    .primary .readout{padding-top:calc(12px + 4mm)}
+    .counter-actions{display:grid;grid-template-columns:1fr;gap:7px;width:100%;min-width:0}
+    .counter-actions.two{grid-template-columns:1fr 1fr}
+    .stage-label{color:var(--red)}.primary.running .stage-label{color:var(--green)}
+    .value{display:flex;justify-content:flex-end;align-items:flex-end;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,15vw,5.2rem);font-weight:700;line-height:.78;letter-spacing:-.065em;margin:0;white-space:nowrap;min-height:0}
+    .primary .value{color:var(--white)}
+    .unit{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-size:.9rem;font-weight:700;line-height:1;letter-spacing:.04em;color:var(--muted);margin-left:5px}
+    .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
+    .speedometer{position:absolute;top:29px;left:9px;width:82px;height:49px;color:#dce3e7;overflow:visible}
+    .speedometer text{fill:#cbd4d9;font:700 7px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick{fill:none;stroke:currentColor}.speedometer .arc{stroke-width:3}.speedometer .tick{stroke-width:2}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
+    .adjust{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
+    .mini,.iconbtn,.zero-trip{border:1px solid #ff7b32;background:var(--orange);color:#130700;border-radius:9px;font-weight:800}
+    .mini{min-height:34px}
+    .iconbtn{width:100%;min-width:0;min-height:31px;padding:3px 8px;font-size:.7rem;line-height:1.05;text-align:center;white-space:normal}
+    .zero-trip{width:100%;min-height:35px;margin-top:5px;letter-spacing:.05em}
+    .main-controls{display:grid;grid-template-columns:1fr;margin-top:0;min-height:0}
+    .main{height:100%;min-height:56px;border:0;border-radius:14px;font-weight:800;font-size:1.08rem;letter-spacing:.04em;background:var(--orange);color:#160904}
+    .main.running{background:var(--orange);color:#160904}
+    .statusbar{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;gap:4px;background:linear-gradient(145deg,#141c21,#0d1317);border:1px solid var(--line);border-radius:14px;color:var(--muted);font-size:.68rem;text-align:center;padding:4px 6px}
+    .statusbar strong{display:block;height:1.2em;color:var(--white);font-size:.93rem;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+    #accuracy.good{color:var(--green)}#accuracy.bad{color:var(--red)}
+    dialog{width:min(92vw,440px);border:1px solid var(--line);border-radius:18px;background:#11191e;color:var(--white);padding:20px;box-shadow:0 30px 80px #000c}
+    dialog::backdrop{background:#000a}
+    dialog h2{margin:0 0 6px;font-size:1.2rem}dialog p{color:var(--muted);margin:0 0 15px}
+    .entry{display:grid;grid-template-columns:1fr auto;align-items:center;background:#080c0f;border:1px solid #34434d;border-radius:12px;padding:0 12px}
+    .entry input{width:100%;border:0;background:transparent;color:var(--white);font-size:2rem;font-weight:750;padding:12px 4px;outline:0;font-variant-numeric:tabular-nums}
+    .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.dialog-actions button{min-height:48px;border:0;border-radius:12px;font-weight:750;background:var(--orange);color:#160904}
+    @media (max-height:700px) and (orientation:portrait){body{padding-top:calc(env(safe-area-inset-top) + 3px);padding-bottom:max(3px,calc(env(safe-area-inset-bottom) + 4px - 5mm))}.app{grid-template-rows:30px minmax(196px,2.2fr) minmax(94px,1fr) minmax(94px,1fr) 46px 50px;gap:5px}.counter{padding:7px 10px}.primary .counter-top{min-height:69px}.primary .readout{padding-top:calc(10px + 4mm)}.secondary-counter .counter-top{min-height:45px}.value{font-size:clamp(2.75rem,14vw,4.7rem)}.zero-trip{min-height:32px;margin-top:3px}.mini{min-height:31px}.adjust{margin-top:3px}.iconbtn{min-height:29px}.main{min-height:50px}.statusbar{padding:2px 5px}}
+    @media (orientation:landscape) and (max-height:520px){body{padding:6px 14px}.app{height:100%;max-width:1000px;grid-template-columns:1.15fr 1fr;grid-template-rows:30px 1fr 1fr 44px 38px;gap:5px}.app header,.main-controls,.statusbar{grid-column:1/-1}.counter{padding:7px 12px}.counter.primary{grid-column:1;grid-row:2/4}.counter:nth-of-type(2){grid-column:2;grid-row:2}.counter:nth-of-type(3){grid-column:2;grid-row:3}.counter-top{grid-template-columns:76px minmax(0,1fr);min-height:44px}.primary .counter-top{min-height:64px}.value{font-size:clamp(2rem,6.5vw,3.5rem)}.speedometer{top:25px;left:7px;width:68px;height:41px}.subvalue{margin-top:1px}.iconbtn{min-height:26px}.adjust{margin-top:3px}.zero-trip{min-height:30px;margin-top:3px}.mini{min-height:29px}.main{min-height:38px}.statusbar{padding:2px 6px}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header><h1><span class="brand">PANDA<span class="brand-s">s</span></span> Tripmaster <span class="panda-mark" role="img" aria-label="Panda">🐼</span></h1><div class="gps bad" id="gpsState"><span class="dot bad" id="gpsDot"></span><span id="gpsText">GPS nicht bereit</span></div></header>
+
+  <section class="counter primary" aria-label="Etappenzähler">
+    <div class="counter-top"><span class="counter-title stage-label">Etappe</span><div class="readout"><div class="value"><span id="tripKm">0,000</span><span class="unit">km</span></div><div class="subvalue"><span id="tripM">0 m</span></div></div></div>
+    <svg class="speedometer" viewBox="0 0 100 58" role="img" aria-label="Aktuelle GPS-Geschwindigkeit">
+      <path class="arc" d="M13 47 A37 37 0 0 1 87 47"/>
+      <path class="tick" d="M13 47l7-2M18 29l7 4M31 15l4 7M50 10v9M69 15l-4 7M82 29l-7 4M87 47l-7-2"/>
+      <text x="8" y="56">0</text><text x="45" y="9">80</text><text x="84" y="56">160</text>
+      <line class="needle" id="speedNeedle" x1="50" y1="47" x2="24.6" y2="56.2"/>
+      <circle class="hub" cx="50" cy="47" r="4"/>
+    </svg>
+    <button class="zero-trip" id="zeroTrip">ETAPPE AUF NULL</button>
+    <div class="adjust" aria-label="Etappe korrigieren">
+      <button class="mini" data-adjust="-10">−10 m</button><button class="mini" data-adjust="-1">−1 m</button>
+      <button class="mini" data-adjust="1">+1 m</button><button class="mini" data-adjust="10">+10 m</button>
+    </div>
+  </section>
+
+  <section class="counter secondary-counter" aria-label="Gesamtzähler">
+    <div class="counter-top"><span class="counter-title">Gesamt</span><div class="value"><span id="totalKm">0,000</span><span class="unit">km</span></div></div>
+    <div class="counter-actions"><button class="iconbtn" id="resetTotal">0 KM</button></div>
+  </section>
+
+  <section class="counter secondary-counter" aria-label="Roadbook-Zähler">
+    <div class="counter-top"><span class="counter-title">Roadbook</span><div class="value"><span id="roadKm">0,000</span><span class="unit">km</span></div></div>
+    <div class="counter-actions two"><button class="iconbtn" id="resetRoadbook">0 KM</button><button class="iconbtn" id="setRoadbook">WERT EINGEBEN</button></div>
+  </section>
+
+  <div class="statusbar">
+    <div>Genauigkeit<strong id="accuracy">—</strong></div><div>Tempo<strong id="speed">0 km/h</strong></div><div>Ø Tempo<strong id="avgSpeed">0 km/h</strong></div><div>GPS-Punkte<strong id="points">0</strong></div>
+  </div>
+  <div class="main-controls"><button class="main" id="startStop">START</button></div>
+</main>
+
+<dialog id="roadDialog">
+  <form method="dialog" id="roadForm"><h2>Roadbook-Stand</h2><p>Genaue Streckenangabe eingeben. Ab diesem Wert wird weitergezählt.</p>
+    <label class="entry"><input id="roadInput" inputmode="decimal" value="0,000" aria-label="Roadbook Kilometer"><span>km</span></label>
+    <div class="dialog-actions"><button class="cancel" value="cancel">Abbrechen</button><button class="save" value="default">Übernehmen</button></div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  document.addEventListener('dblclick',event=>event.preventDefault(),{passive:false});
+  const $ = id => document.getElementById(id);
+  let audioContext=null;
+  function bing(){try{audioContext??=new (window.AudioContext||window.webkitAudioContext)();const now=audioContext.currentTime,osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.setValueAtTime(880,now);osc.frequency.exponentialRampToValueAtTime(1175,now+.07);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.16,now+.008);gain.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now);osc.stop(now+.13)}catch{}}
+  document.addEventListener('click',event=>{if(event.target.closest('button'))bing()},true);
+  const state = {running:false, watch:null, last:null, trip:+localStorage.trip||0, total:+localStorage.total||0, road:+localStorage.road||0, tripOffset:+localStorage.tripOffset||0, activeMs:+localStorage.activeMs||0, runStarted:null, points:0, wake:null};
+  const rad = n => n*Math.PI/180;
+  const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
+  const km = m => (Math.max(0,m)/1000).toFixed(3).replace('.',',');
+  function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
+  const persist=()=>{localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=state.tripOffset;localStorage.activeMs=state.activeMs};
+  function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;$('tripKm').textContent=km(shown);$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;$('totalKm').textContent=km(state.total);$('roadKm').textContent=km(state.road);$('avgSpeed').textContent=`${avg.toFixed(1).replace('.',',')} km/h`;$('points').textContent=state.points;}
+  function gpsStatus(kind,text){$('gpsDot').className='dot '+kind;$('gpsState').className='gps '+kind;$('gpsText').textContent=text;}
+  function position(p){const c=p.coords,liveSpeed=c.speed==null?0:Math.max(0,c.speed*3.6);const accuracy=$('accuracy');accuracy.textContent=`±${Math.round(c.accuracy)} m`;accuracy.className=c.accuracy<=10?'good':'bad';$('speed').textContent=c.speed==null?'—':`${liveSpeed.toFixed(0)} km/h`;updateSpeedometer(liveSpeed);gpsStatus('good','GPS bereit');
+    const now={latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,time:p.timestamp};
+    if(state.last){const distanceMeters=distance(state.last,now),dt=(now.time-state.last.time)/1000;const plausible=distanceMeters<=Math.max(35,dt*65);if(distanceMeters>2&&plausible&&c.accuracy<=50){state.trip+=distanceMeters;state.total+=distanceMeters;state.road+=distanceMeters;state.points++;persist();draw();}}
+    state.last=now;
+  }
+  function geoError(e){gpsStatus('bad',e.code===1?'Standort gesperrt':'Kein GPS');}
+  async function keepScreenOn(){if(!state.running||!('wakeLock'in navigator))return;try{state.wake=await navigator.wakeLock.request('screen');state.wake.addEventListener('release',()=>{state.wake=null;if(state.running&&document.visibilityState==='visible')setTimeout(keepScreenOn,300)},{once:true})}catch{}}
+  async function start(){if(!navigator.geolocation){geoError({code:0});return}state.last=null;state.running=true;state.runStarted=Date.now();state.watch=navigator.geolocation.watchPosition(position,geoError,{enableHighAccuracy:true,maximumAge:0,timeout:12000});$('startStop').textContent='PAUSE';$('startStop').classList.add('running');document.querySelector('.primary').classList.add('running');gpsStatus('bad','GPS sucht…');draw();await keepScreenOn()}
+  function stop(){if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;state.last=null;if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;persist();if(state.wake){state.wake.release().catch(()=>{});state.wake=null}updateSpeedometer(0);$('startStop').textContent='WEITER';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');gpsStatus('bad','GPS nicht bereit');draw();}
+  $('startStop').onclick=()=>state.running?stop():start();
+  $('zeroTrip').onclick=()=>{state.trip=0;state.tripOffset=0;state.activeMs=0;if(state.running)state.runStarted=Date.now();state.last=null;persist();draw()};
+  $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0,000 km setzen?')){state.total=0;persist();draw()}};
+  $('resetRoadbook').onclick=()=>{if(confirm('Roadbook wirklich auf 0,000 km setzen?')){state.road=0;persist();draw()}};
+  document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{state.tripOffset=Math.max(-state.trip,state.tripOffset+Number(b.dataset.adjust));persist();draw()});
+  $('setRoadbook').onclick=()=>{$('roadInput').value=km(state.road);$('roadDialog').showModal();setTimeout(()=>$('roadInput').select(),50)};
+  $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}state.road=n*1000;persist();draw()});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.running)keepScreenOn()});
+  if(document.modelContext?.registerTool){
+    const register=(tool)=>{try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{})}catch{}};
+    register({name:'read_tripmaster_state',title:'Tripmaster-Stand lesen',description:'Liest die aktuellen Etappen-, Gesamt- und Roadbook-Kilometer.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>({running:state.running,trip_km:+((state.trip+state.tripOffset)/1000).toFixed(3),total_km:+(state.total/1000).toFixed(3),roadbook_km:+(state.road/1000).toFixed(3)})});
+    register({name:'set_roadbook_distance',title:'Roadbook-Stand setzen',description:'Setzt den Roadbook-Zähler auf einen exakten Kilometerstand; die GPS-Strecke zählt danach von dort weiter.',inputSchema:{type:'object',properties:{kilometers:{type:'number',minimum:0}},required:['kilometers'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({kilometers})=>{if(!Number.isFinite(kilometers)||kilometers<0)throw new Error('kilometers muss eine nicht-negative Zahl sein');state.road=kilometers*1000;persist();draw();return{roadbook_km:+kilometers.toFixed(3)}}});
+    register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0,000 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{state.trip=0;state.tripOffset=0;state.last=null;persist();draw();return{trip_km:0}}});
+  }
+  if('serviceWorker'in navigator){
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
+    navigator.serviceWorker.register('/sw.js?v=14',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+  }
+  setInterval(draw,1000);
+  draw();
+})();
+</script>
+</body>
+</html>
