@@ -36,13 +36,13 @@
     .counter-actions{display:grid;grid-template-columns:1fr;gap:7px;width:100%;min-width:0}
     .counter-actions.two{grid-template-columns:1fr 1fr}
     .stage-label{color:var(--red)}.primary.running .stage-label{color:var(--green)}
-    .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:-.055em;margin:0;white-space:nowrap;min-height:0}
-    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible;transform:translateX(-4mm)}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char.fraction-last{margin-left:-.035em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
+    .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:-.055em;margin:0;white-space:nowrap;min-height:0;transform:translateX(-4mm)}
+    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char.fraction-last{margin-left:-.035em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
     .primary .value{color:var(--white)}
     .unit{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-size:.9rem;font-weight:700;line-height:1;letter-spacing:.04em;color:var(--muted);margin-left:5px}
     .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
     .speedometer{position:absolute;top:calc(29px + 5mm);left:calc(9px + 5mm);width:84.46px;height:50.47px;color:#dce3e7;overflow:visible}
-    .speedometer text{fill:#cbd4d9;font:700 7.14px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick,.speedometer .red-tick{fill:none;stroke:currentColor}.speedometer .arc{stroke-width:3}.speedometer .tick{stroke-width:2}.speedometer .red-tick{stroke:var(--red);stroke-width:3;stroke-linecap:round}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
+    .speedometer text{fill:#cbd4d9;font:700 7.14px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick,.speedometer .red-tick{fill:none;stroke:currentColor;stroke-linecap:round}.speedometer .arc{stroke-width:1.55}.speedometer .tick{stroke-width:1.45}.speedometer .red-tick{stroke:var(--red);stroke-width:1.9}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
     .adjust{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
     .mini,.iconbtn,.zero-trip{border:1px solid #ff7b32;background:var(--orange);color:#130700;border-radius:9px;font-weight:800}
     .mini{min-height:34px}
@@ -75,7 +75,7 @@
       <path class="arc" d="M13 47 A37 37 0 0 1 87 47"/>
       <path class="tick" d="M13 47l7-2M18 29l7 4M31 15l4 7M50 10v9M69 15l-4 7M82 29l-7 4M87 47l-7-2"/>
       <path class="red-tick" d="M15.5 33.6L23 36.5M25.6 19.2L30.9 25.2M50 10L50 18"/>
-      <text x="8" y="56">0</text><text x="45" y="9">80</text><text x="84" y="56">160</text>
+      <text x="8" y="56">0</text><text x="2" y="36">30</text><text x="16" y="20">50</text><text x="45" y="9">80</text><text x="84" y="56">160</text>
       <line class="needle" id="speedNeedle" x1="50" y1="47" x2="24.6" y2="56.2"/>
       <circle class="hub" cx="50" cy="47" r="4"/>
     </svg>
