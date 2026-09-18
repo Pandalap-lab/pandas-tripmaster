@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="Tripmaster">
   <title>PANDAs Tripmaster</title>
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=16">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=16">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=17">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=17">
   <style>
     :root{color-scheme:dark;--bg:#070b0e;--panel:#10171c;--line:#243039;--muted:#8fa0aa;--white:#f6f7f8;--orange:#ff5a1f;--green:#35d07f;--red:#ff5757}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -37,12 +37,12 @@
     .counter-actions.two{grid-template-columns:1fr 1fr}
     .stage-label{color:var(--red)}.primary.running .stage-label{color:var(--green)}
     .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:-.055em;margin:0;white-space:nowrap;min-height:0}
-    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
+    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible;transform:translateX(-4mm)}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char.fraction-last{margin-left:-.035em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
     .primary .value{color:var(--white)}
     .unit{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-size:.9rem;font-weight:700;line-height:1;letter-spacing:.04em;color:var(--muted);margin-left:5px}
     .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
-    .speedometer{position:absolute;top:29px;left:9px;width:82px;height:49px;color:#dce3e7;overflow:visible}
-    .speedometer text{fill:#cbd4d9;font:700 7px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick{fill:none;stroke:currentColor}.speedometer .arc{stroke-width:3}.speedometer .tick{stroke-width:2}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
+    .speedometer{position:absolute;top:calc(29px + 5mm);left:calc(9px + 5mm);width:84.46px;height:50.47px;color:#dce3e7;overflow:visible}
+    .speedometer text{fill:#cbd4d9;font:700 7.14px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick,.speedometer .red-tick{fill:none;stroke:currentColor}.speedometer .arc{stroke-width:3}.speedometer .tick{stroke-width:2}.speedometer .red-tick{stroke:var(--red);stroke-width:3;stroke-linecap:round}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
     .adjust{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
     .mini,.iconbtn,.zero-trip{border:1px solid #ff7b32;background:var(--orange);color:#130700;border-radius:9px;font-weight:800}
     .mini{min-height:34px}
@@ -74,6 +74,7 @@
     <svg class="speedometer" viewBox="0 0 100 58" role="img" aria-label="Aktuelle GPS-Geschwindigkeit">
       <path class="arc" d="M13 47 A37 37 0 0 1 87 47"/>
       <path class="tick" d="M13 47l7-2M18 29l7 4M31 15l4 7M50 10v9M69 15l-4 7M82 29l-7 4M87 47l-7-2"/>
+      <path class="red-tick" d="M15.5 33.6L23 36.5M25.6 19.2L30.9 25.2M50 10L50 18"/>
       <text x="8" y="56">0</text><text x="45" y="9">80</text><text x="84" y="56">160</text>
       <line class="needle" id="speedNeedle" x1="50" y1="47" x2="24.6" y2="56.2"/>
       <circle class="hub" cx="50" cy="47" r="4"/>
@@ -119,7 +120,7 @@
   const rad = n => n*Math.PI/180;
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
   const km = m => (Math.max(0,m)/1000).toFixed(2);
-  function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char';const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
+  function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char'+(index===value.length-1?' fraction-last':'');const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
   function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
   const persist=()=>{localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=state.tripOffset;localStorage.activeMs=state.activeMs};
   function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1)} km/h`;$('points').textContent=state.points;}
@@ -150,7 +151,7 @@
   }
   if('serviceWorker'in navigator){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('./sw.js?v=16',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=17',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   draw();
