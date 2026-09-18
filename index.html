@@ -36,8 +36,8 @@
     .counter-actions{display:grid;grid-template-columns:1fr;gap:7px;width:100%;min-width:0}
     .counter-actions.two{grid-template-columns:1fr 1fr}
     .stage-label{color:var(--red)}.primary.running .stage-label{color:var(--green)}
-    .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:-.055em;margin:0;white-space:nowrap;min-height:0;transform:translateX(-4mm)}
-    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char.fraction-last{margin-left:-.035em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
+    .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:0;margin:0;white-space:nowrap;min-height:0;transform:translateX(-4mm)}
+    .odometer{display:inline-flex;align-items:flex-end;gap:.025em;padding:0 .04em .03em 0;overflow:visible;letter-spacing:0}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding:0}.odo-char.fraction-last{margin-left:0}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
     .primary .value{color:var(--white)}
     .unit{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-size:.9rem;font-weight:700;line-height:1;letter-spacing:.04em;color:var(--muted);margin-left:5px}
     .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
@@ -73,8 +73,8 @@
     <div class="counter-top"><span class="counter-title stage-label">Etappe</span><div class="readout"><div class="value"><span class="odometer" id="tripKm">0.00</span><span class="unit">km</span></div><div class="subvalue"><span id="tripM">0 m</span></div></div></div>
     <svg class="speedometer" viewBox="0 0 100 58" role="img" aria-label="Aktuelle GPS-Geschwindigkeit">
       <path class="arc" d="M13 47 A37 37 0 0 1 87 47"/>
-      <path class="tick" d="M13 47l7-2M18 29l7 4M31 15l4 7M50 10v9M69 15l-4 7M82 29l-7 4M87 47l-7-2"/>
-      <path class="red-tick" d="M15.5 33.6L23 36.5M25.6 19.2L30.9 25.2M50 10L50 18"/>
+      <path class="tick" d="M19.9 57.9L25.6 55.9M18.3 42.8L24.2 43.6M23.8 28.6L28.7 32.1M35.2 18.6L38 23.9M64.8 18.6L62 23.9M76.2 28.6L71.3 32.1M81.7 42.8L75.8 43.6M80.1 57.9L74.4 55.9"/>
+      <path class="red-tick" d="M20.2 35.4L25.8 37.6M28.9 22.9L32.9 27.5M50 15L50 21"/>
       <text x="8" y="56">0</text><text x="2" y="36">30</text><text x="16" y="20">50</text><text x="45" y="9">80</text><text x="84" y="56">160</text>
       <line class="needle" id="speedNeedle" x1="50" y1="47" x2="24.6" y2="56.2"/>
       <circle class="hub" cx="50" cy="47" r="4"/>
