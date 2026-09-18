@@ -3,7 +3,7 @@
   "name": "PANDAs Tripmaster",
   "short_name": "PANDAs",
   "description": "GPS-Tripmaster für Rallyes – vollständig offline nutzbar",
-  "start_url": "./?app=14",
+  "start_url": "./?app=15",
   "scope": "./",
   "display": "standalone",
   "background_color": "#070b0e",

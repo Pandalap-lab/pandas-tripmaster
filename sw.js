@@ -1,8 +1,8 @@
-const CACHE = 'tripmaster-v14-github';
+const CACHE = 'tripmaster-v15-github';
 
 const SHELL = [
   './',
-  './?app=14',
+  './?app=15',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -41,10 +41,10 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put('./?app=14', copy));
+          caches.open(CACHE).then(cache => cache.put('./?app=15', copy));
           return response;
         })
-        .catch(() => caches.match('./?app=14'))
+        .catch(() => caches.match('./?app=15'))
     );
     return;
   }
