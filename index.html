@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="Tripmaster">
   <title>PANDAs Tripmaster</title>
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=15">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=15">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=16">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=16">
   <style>
     :root{color-scheme:dark;--bg:#070b0e;--panel:#10171c;--line:#243039;--muted:#8fa0aa;--white:#f6f7f8;--orange:#ff5a1f;--green:#35d07f;--red:#ff5757}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -36,8 +36,8 @@
     .counter-actions{display:grid;grid-template-columns:1fr;gap:7px;width:100%;min-width:0}
     .counter-actions.two{grid-template-columns:1fr 1fr}
     .stage-label{color:var(--red)}.primary.running .stage-label{color:var(--green)}
-    .value{display:flex;justify-content:flex-end;align-items:flex-end;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,15vw,5.2rem);font-weight:700;line-height:.78;letter-spacing:-.065em;margin:0;white-space:nowrap;min-height:0}
-    .odometer{display:inline-flex;align-items:flex-end}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.78em;line-height:.78em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
+    .value{display:flex;justify-content:flex-end;align-items:flex-end;padding-right:5px;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-variant-numeric:tabular-nums lining-nums;text-align:right;font-size:clamp(3rem,14.2vw,5.05rem);font-weight:700;line-height:.78;letter-spacing:-.055em;margin:0;white-space:nowrap;min-height:0}
+    .odometer{display:inline-flex;align-items:flex-end;padding:0 .04em .03em 0;overflow:visible}.odo-char{position:relative;display:inline-block;overflow:hidden;height:.82em;line-height:.82em;padding-right:.015em}.odo-char>span{display:block}.odo-char.rolling>span{animation:odo-roll .28s ease-out}.odo-char.rolling>span::before{content:attr(data-old);position:absolute;left:0;top:-1em}@keyframes odo-roll{from{transform:translateY(1em)}to{transform:translateY(0)}}
     .primary .value{color:var(--white)}
     .unit{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-size:.9rem;font-weight:700;line-height:1;letter-spacing:.04em;color:var(--muted);margin-left:5px}
     .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
@@ -70,7 +70,7 @@
   <header><h1><span class="brand">PANDA<span class="brand-s">s</span></span> Tripmaster <span class="panda-mark" role="img" aria-label="Panda">🐼</span></h1><div class="gps bad" id="gpsState"><span class="dot bad" id="gpsDot"></span><span id="gpsText">GPS nicht bereit</span></div></header>
 
   <section class="counter primary" aria-label="Etappenzähler">
-    <div class="counter-top"><span class="counter-title stage-label">Etappe</span><div class="readout"><div class="value"><span class="odometer" id="tripKm">0,00</span><span class="unit">km</span></div><div class="subvalue"><span id="tripM">0 m</span></div></div></div>
+    <div class="counter-top"><span class="counter-title stage-label">Etappe</span><div class="readout"><div class="value"><span class="odometer" id="tripKm">0.00</span><span class="unit">km</span></div><div class="subvalue"><span id="tripM">0 m</span></div></div></div>
     <svg class="speedometer" viewBox="0 0 100 58" role="img" aria-label="Aktuelle GPS-Geschwindigkeit">
       <path class="arc" d="M13 47 A37 37 0 0 1 87 47"/>
       <path class="tick" d="M13 47l7-2M18 29l7 4M31 15l4 7M50 10v9M69 15l-4 7M82 29l-7 4M87 47l-7-2"/>
@@ -86,12 +86,12 @@
   </section>
 
   <section class="counter secondary-counter" aria-label="Gesamtzähler">
-    <div class="counter-top"><span class="counter-title">Gesamt</span><div class="value"><span class="odometer" id="totalKm">0,00</span><span class="unit">km</span></div></div>
+    <div class="counter-top"><span class="counter-title">Gesamt</span><div class="value"><span class="odometer" id="totalKm">0.00</span><span class="unit">km</span></div></div>
     <div class="counter-actions"><button class="iconbtn" id="resetTotal">0 KM</button></div>
   </section>
 
   <section class="counter secondary-counter" aria-label="Roadbook-Zähler">
-    <div class="counter-top"><span class="counter-title">Roadbook</span><div class="value"><span class="odometer" id="roadKm">0,00</span><span class="unit">km</span></div></div>
+    <div class="counter-top"><span class="counter-title">Roadbook</span><div class="value"><span class="odometer" id="roadKm">0.00</span><span class="unit">km</span></div></div>
     <div class="counter-actions two"><button class="iconbtn" id="resetRoadbook">0 KM</button><button class="iconbtn" id="setRoadbook">WERT EINGEBEN</button></div>
   </section>
 
@@ -103,7 +103,7 @@
 
 <dialog id="roadDialog">
   <form method="dialog" id="roadForm"><h2>Roadbook-Stand</h2><p>Genaue Streckenangabe eingeben. Ab diesem Wert wird weitergezählt.</p>
-    <label class="entry"><input id="roadInput" inputmode="decimal" value="0,00" aria-label="Roadbook Kilometer"><span>km</span></label>
+    <label class="entry"><input id="roadInput" inputmode="decimal" value="0.00" aria-label="Roadbook Kilometer"><span>km</span></label>
     <div class="dialog-actions"><button class="cancel" value="cancel">Abbrechen</button><button class="save" value="default">Übernehmen</button></div>
   </form>
 </dialog>
@@ -118,15 +118,15 @@
   const state = {running:false, watch:null, last:null, trip:+localStorage.trip||0, total:+localStorage.total||0, road:+localStorage.road||0, tripOffset:+localStorage.tripOffset||0, activeMs:+localStorage.activeMs||0, runStarted:null, points:0, wake:null};
   const rad = n => n*Math.PI/180;
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
-  const km = m => (Math.max(0,m)/1000).toFixed(2).replace('.',',');
+  const km = m => (Math.max(0,m)/1000).toFixed(2);
   function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char';const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
   function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
   const persist=()=>{localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=state.tripOffset;localStorage.activeMs=state.activeMs};
-  function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1).replace('.',',')} km/h`;$('points').textContent=state.points;}
+  function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1)} km/h`;$('points').textContent=state.points;}
   function gpsStatus(kind,text){$('gpsDot').className='dot '+kind;$('gpsState').className='gps '+kind;$('gpsText').textContent=text;}
   function position(p){const c=p.coords,liveSpeed=c.speed==null?0:Math.max(0,c.speed*3.6);const accuracy=$('accuracy');accuracy.textContent=`±${Math.round(c.accuracy)} m`;accuracy.className=c.accuracy<=10?'good':'bad';$('speed').textContent=c.speed==null?'—':`${liveSpeed.toFixed(0)} km/h`;updateSpeedometer(liveSpeed);gpsStatus('good','GPS bereit');
     const now={latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,time:p.timestamp};
-    if(state.last){const distanceMeters=distance(state.last,now),dt=(now.time-state.last.time)/1000;const plausible=distanceMeters<=Math.max(35,dt*65);if(distanceMeters>2&&plausible&&c.accuracy<=50){state.trip+=distanceMeters;state.total+=distanceMeters;state.road+=distanceMeters;state.points++;persist();draw();}}
+    if(state.last){const distanceMeters=distance(state.last,now),dt=Math.max(.1,(now.time-state.last.time)/1000),derivedSpeedKmh=distanceMeters/dt*3.6;const plausible=distanceMeters<=Math.max(35,dt*65),movementThreshold=Math.max(3,Math.min(12,c.accuracy*.5)),movingSpeed=c.speed==null?derivedSpeedKmh:liveSpeed;const genuineMovement=distanceMeters>movementThreshold&&movingSpeed>=3;if(genuineMovement&&plausible&&c.accuracy<=25){state.trip+=distanceMeters;state.total+=distanceMeters;state.road+=distanceMeters;state.points++;persist();draw();}}
     state.last=now;
   }
   function geoError(e){gpsStatus('bad',e.code===1?'Standort gesperrt':'Kein GPS');}
@@ -135,9 +135,9 @@
   function stop(){if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;state.last=null;if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;persist();if(state.wake){state.wake.release().catch(()=>{});state.wake=null}updateSpeedometer(0);$('startStop').textContent='WEITER';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');gpsStatus('bad','GPS nicht bereit');draw();}
   $('startStop').onclick=()=>state.running?stop():start();
   $('zeroTrip').onclick=()=>{state.trip=0;state.tripOffset=0;state.activeMs=0;if(state.running)state.runStarted=Date.now();state.last=null;persist();draw()};
-  $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0,00 km setzen?')){state.total=0;persist();draw()}};
-  $('resetRoadbook').onclick=()=>{if(confirm('Roadbook wirklich auf 0,00 km setzen?')){state.road=0;persist();draw()}};
-  $('resetAll').onclick=()=>{if(confirm('Etappe, Gesamt und Roadbook wirklich gemeinsam auf 0,00 km setzen?')){state.trip=0;state.tripOffset=0;state.total=0;state.road=0;state.activeMs=0;if(state.running)state.runStarted=Date.now();state.last=null;persist();draw()}};
+  $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0.00 km setzen?')){state.total=0;persist();draw()}};
+  $('resetRoadbook').onclick=()=>{if(confirm('Roadbook wirklich auf 0.00 km setzen?')){state.road=0;persist();draw()}};
+  $('resetAll').onclick=()=>{if(confirm('Etappe, Gesamt und Roadbook wirklich gemeinsam auf 0.00 km setzen?')){state.trip=0;state.tripOffset=0;state.total=0;state.road=0;state.activeMs=0;if(state.running)state.runStarted=Date.now();state.last=null;persist();draw()}};
   document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{state.tripOffset=Math.max(-state.trip,state.tripOffset+Number(b.dataset.adjust));persist();draw()});
   $('setRoadbook').onclick=()=>{$('roadInput').value=km(state.road);$('roadDialog').showModal();setTimeout(()=>$('roadInput').select(),50)};
   $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}state.road=n*1000;persist();draw()});
@@ -146,11 +146,11 @@
     const register=(tool)=>{try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{})}catch{}};
     register({name:'read_tripmaster_state',title:'Tripmaster-Stand lesen',description:'Liest die aktuellen Etappen-, Gesamt- und Roadbook-Kilometer.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>({running:state.running,trip_km:+((state.trip+state.tripOffset)/1000).toFixed(2),total_km:+(state.total/1000).toFixed(2),roadbook_km:+(state.road/1000).toFixed(2)})});
     register({name:'set_roadbook_distance',title:'Roadbook-Stand setzen',description:'Setzt den Roadbook-Zähler auf einen exakten Kilometerstand; die GPS-Strecke zählt danach von dort weiter.',inputSchema:{type:'object',properties:{kilometers:{type:'number',minimum:0}},required:['kilometers'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({kilometers})=>{if(!Number.isFinite(kilometers)||kilometers<0)throw new Error('kilometers muss eine nicht-negative Zahl sein');state.road=kilometers*1000;persist();draw();return{roadbook_km:+kilometers.toFixed(2)}}});
-    register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0,00 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{state.trip=0;state.tripOffset=0;state.last=null;persist();draw();return{trip_km:0}}});
+    register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0.00 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{state.trip=0;state.tripOffset=0;state.last=null;persist();draw();return{trip_km:0}}});
   }
   if('serviceWorker'in navigator){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('./sw.js?v=15',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=16',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   draw();
