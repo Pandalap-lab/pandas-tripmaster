@@ -43,6 +43,8 @@
     .subvalue{display:flex;justify-content:flex-end;margin-top:5px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.75rem}
     .speedometer{position:absolute;top:calc(29px + 5mm);left:calc(9px + 5mm);width:84.46px;height:50.47px;color:#dce3e7;overflow:visible}
     .speedometer text{fill:#cbd4d9;font:700 7.14px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}.speedometer .arc,.speedometer .tick,.speedometer .red-tick{fill:none;stroke:currentColor;stroke-linecap:round}.speedometer .arc{stroke-width:1.55}.speedometer .tick{stroke-width:1.45}.speedometer .red-tick{stroke:var(--red);stroke-width:1.9}.speedometer .needle{stroke:var(--orange);stroke-width:4.5;stroke-linecap:round}.speedometer .hub{fill:var(--orange)}
+    .roller-clock{position:absolute;top:calc(29px + 5mm + 54px);left:calc(9px + 5mm);width:84.46px;height:1.05em;display:flex;align-items:center;justify-content:center;gap:.05em;color:#dce3e7;font-family:Futura,"Futura PT","Avenir Next","Century Gothic",Montserrat,sans-serif;font-size:.72rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+    .clock-digit{position:relative;display:inline-block;width:.62em;height:1em;line-height:1em;text-align:center;overflow:hidden}.clock-colon{display:inline-block;width:.28em;height:1em;line-height:.9em;text-align:center}.clock-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.clock-new{transform:translateY(100%)}.clock-digit.rolling .clock-old{animation:clock-old-up .26s ease-in-out forwards}.clock-digit.rolling .clock-new{animation:clock-new-up .26s ease-in-out forwards}@keyframes clock-old-up{to{transform:translateY(-100%)}}@keyframes clock-new-up{to{transform:translateY(0)}}
     .adjust{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
     .mini,.iconbtn,.zero-trip{border:1px solid #ff7b32;background:var(--orange);color:#130700;border-radius:9px;font-weight:800}
     .mini{min-height:34px}
@@ -62,7 +64,7 @@
     .entry input{width:100%;border:0;background:transparent;color:var(--white);font-size:2rem;font-weight:750;padding:12px 4px;outline:0;font-variant-numeric:tabular-nums}
     .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.dialog-actions button{min-height:48px;border:0;border-radius:12px;font-weight:750;background:var(--orange);color:#160904}
     @media (max-height:700px) and (orientation:portrait){body{padding-top:calc(env(safe-area-inset-top) + 3px);padding-bottom:max(3px,calc(env(safe-area-inset-bottom) + 4px - 5mm))}.app{grid-template-rows:30px minmax(196px,2.2fr) minmax(94px,1fr) minmax(94px,1fr) 46px 50px;gap:5px}.counter{padding:7px 10px}.primary .counter-top{min-height:69px}.primary .readout{padding-top:calc(10px + 4mm)}.secondary-counter .counter-top{min-height:45px}.value{font-size:clamp(2.75rem,14vw,4.7rem)}.zero-trip{min-height:32px;margin-top:3px}.mini{min-height:31px}.adjust{margin-top:3px}.iconbtn{min-height:29px}.main,.reset-all{min-height:50px}.statusbar{padding:2px 5px}}
-    @media (orientation:landscape) and (max-height:520px){body{padding:6px 14px}.app{height:100%;max-width:1000px;grid-template-columns:1.15fr 1fr;grid-template-rows:30px 1fr 1fr 44px 38px;gap:5px}.app header,.main-controls,.statusbar{grid-column:1/-1}.counter{padding:7px 12px}.counter.primary{grid-column:1;grid-row:2/4}.counter:nth-of-type(2){grid-column:2;grid-row:2}.counter:nth-of-type(3){grid-column:2;grid-row:3}.counter-top{grid-template-columns:76px minmax(0,1fr);min-height:44px}.primary .counter-top{min-height:64px}.value{font-size:clamp(2rem,6.5vw,3.5rem)}.speedometer{top:25px;left:7px;width:68px;height:41px}.subvalue{margin-top:1px}.iconbtn{min-height:26px}.adjust{margin-top:3px}.zero-trip{min-height:30px;margin-top:3px}.mini{min-height:29px}.main{min-height:38px}.statusbar{padding:2px 6px}}
+    @media (orientation:landscape) and (max-height:520px){body{padding:6px 14px}.app{height:100%;max-width:1000px;grid-template-columns:1.15fr 1fr;grid-template-rows:30px 1fr 1fr 44px 38px;gap:5px}.app header,.main-controls,.statusbar{grid-column:1/-1}.counter{padding:7px 12px}.counter.primary{grid-column:1;grid-row:2/4}.counter:nth-of-type(2){grid-column:2;grid-row:2}.counter:nth-of-type(3){grid-column:2;grid-row:3}.counter-top{grid-template-columns:76px minmax(0,1fr);min-height:44px}.primary .counter-top{min-height:64px}.value{font-size:clamp(2rem,6.5vw,3.5rem)}.speedometer{top:25px;left:7px;width:68px;height:41px}.roller-clock{top:69px;left:7px;width:68px;font-size:.6rem}.subvalue{margin-top:1px}.iconbtn{min-height:26px}.adjust{margin-top:3px}.zero-trip{min-height:30px;margin-top:3px}.mini{min-height:29px}.main{min-height:38px}.statusbar{padding:2px 6px}}
   </style>
 </head>
 <body>
@@ -79,6 +81,7 @@
       <line class="needle" id="speedNeedle" x1="50" y1="47" x2="24.6" y2="56.2"/>
       <circle class="hub" cx="50" cy="47" r="4"/>
     </svg>
+    <div class="roller-clock" id="rollerClock" role="timer" aria-label="Aktuelle Uhrzeit"></div>
     <button class="zero-trip" id="zeroTrip">ETAPPE AUF NULL</button>
     <div class="adjust" aria-label="Etappe korrigieren">
       <button class="mini" data-adjust="-10">−10 m</button><button class="mini" data-adjust="-1">−1 m</button>
@@ -123,6 +126,12 @@
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
   const km = m => (Math.max(0,m)/1000).toFixed(2);
   function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char'+(index===value.length-1?' fraction-last':'');const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
+  let clockTimer=null;
+  function clockValue(){const now=new Date();return[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':')}
+  function initClock(value){const clock=$('rollerClock');clock.textContent='';[...value].forEach((char,index)=>{const part=document.createElement('span');if(char===':'){part.className='clock-colon';part.textContent=':'}else{part.className='clock-digit';part.dataset.clockIndex=index;part.dataset.value=char;part.textContent=char}clock.appendChild(part)})}
+  function updateClock(animate=true){const value=clockValue(),clock=$('rollerClock');if(!clock.children.length)initClock(value);clock.setAttribute('aria-label',value);clock.querySelectorAll('.clock-digit').forEach(slot=>{const index=Number(slot.dataset.clockIndex),next=value[index],old=slot.dataset.value;if(old===next)return;if(!animate||old==null){slot.classList.remove('rolling');slot.textContent=next;slot.dataset.value=next;return}const token=`${Date.now()}-${index}-${next}`;slot.dataset.token=token;slot.textContent='';const oldFace=document.createElement('span'),newFace=document.createElement('span');oldFace.className='clock-face clock-old';newFace.className='clock-face clock-new';oldFace.textContent=old;newFace.textContent=next;slot.append(oldFace,newFace);slot.dataset.value=next;requestAnimationFrame(()=>slot.classList.add('rolling'));setTimeout(()=>{if(slot.dataset.token!==token)return;slot.classList.remove('rolling');slot.textContent=next},280)})}
+  function scheduleClock(){clearTimeout(clockTimer);updateClock(true);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
+  function syncClock(){clearTimeout(clockTimer);updateClock(false);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
   function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
   const persist=()=>{localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=state.tripOffset;localStorage.activeMs=state.activeMs;localStorage.tripmasterRunning=state.running?'1':'0';if(state.last)localStorage.lastGpsPosition=JSON.stringify(state.last);else if(!state.running)localStorage.removeItem('lastGpsPosition')};
   function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1)} km/h`;$('points').textContent=state.points;}
@@ -146,9 +155,9 @@
   document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{state.tripOffset=Math.max(-state.trip,state.tripOffset+Number(b.dataset.adjust));persist();draw()});
   $('setRoadbook').onclick=()=>{$('roadInput').value=km(state.road);$('roadDialog').showModal();setTimeout(()=>$('roadInput').select(),50)};
   $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}state.road=n*1000;persist();draw()});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')suspendForInterruption();else resumeAfterInterruption()});
-  window.addEventListener('pagehide',suspendForInterruption);
-  window.addEventListener('pageshow',resumeAfterInterruption);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(clockTimer);suspendForInterruption()}else{syncClock();resumeAfterInterruption()}});
+  window.addEventListener('pagehide',()=>{clearTimeout(clockTimer);suspendForInterruption()});
+  window.addEventListener('pageshow',()=>{syncClock();resumeAfterInterruption()});
   if(document.modelContext?.registerTool){
     const register=(tool)=>{try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{})}catch{}};
     register({name:'read_tripmaster_state',title:'Tripmaster-Stand lesen',description:'Liest die aktuellen Etappen-, Gesamt- und Roadbook-Kilometer.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>({running:state.running,trip_km:+((state.trip+state.tripOffset)/1000).toFixed(2),total_km:+(state.total/1000).toFixed(2),roadbook_km:+(state.road/1000).toFixed(2)})});
@@ -161,6 +170,7 @@
   }
   setInterval(draw,1000);
   draw();
+  syncClock();
   if(resumeAfterLoad)start();
 })();
 </script>
