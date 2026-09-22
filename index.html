@@ -68,6 +68,13 @@
     .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.dialog-actions button{min-height:48px;border:0;border-radius:12px;font-weight:750;background:var(--orange);color:#160904}
     @media (max-height:700px) and (orientation:portrait){body{padding-top:calc(env(safe-area-inset-top) + 3px);padding-bottom:max(3px,calc(env(safe-area-inset-bottom) + 4px - 5mm))}.app{grid-template-rows:30px minmax(196px,2.2fr) minmax(94px,1fr) minmax(94px,1fr) 46px 50px;gap:5px}.counter{padding:7px 10px}.primary .counter-top{min-height:69px}.primary .readout{padding-top:calc(10px + 4mm)}.secondary-counter .counter-top{min-height:45px}.value{font-size:clamp(2.75rem,14vw,4.7rem)}.zero-trip{min-height:32px;margin-top:3px}.mini{min-height:31px}.adjust{margin-top:3px}.iconbtn{min-height:29px}.main,.reset-all{min-height:50px}.statusbar{padding:2px 5px}}
     @media (orientation:landscape) and (max-height:520px){body{padding:6px 14px}.app{height:100%;max-width:1000px;grid-template-columns:1.15fr 1fr;grid-template-rows:30px 1fr 1fr 44px 38px;gap:5px}.app header,.main-controls,.statusbar{grid-column:1/-1}.counter{padding:7px 12px}.counter.primary{grid-column:1;grid-row:2/4}.counter:nth-of-type(2){grid-column:2;grid-row:2}.counter:nth-of-type(3){grid-column:2;grid-row:3}.counter-top{grid-template-columns:76px minmax(0,1fr);min-height:44px}.primary .counter-top{min-height:64px}.value{font-size:clamp(2rem,6.5vw,3.5rem)}.speedometer{top:25px;left:7px;width:68px;height:41px}.roller-clock{top:calc(69px + 3mm);left:7px;width:68px;font-size:.6rem}.subvalue{margin-top:1px}.iconbtn{min-height:26px}.adjust{margin-top:3px}.zero-trip{min-height:30px;margin-top:3px}.mini{min-height:29px}.main{min-height:38px}.statusbar{padding:2px 6px}}
+    /* Keep all controls reachable on short screens; the total tile owns corrections. */
+    html,body{overflow:auto}body{min-height:100dvh;height:auto}
+    .app{min-width:0;min-height:calc(100dvh - 32px);height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:32px minmax(174px,2fr) minmax(150px,1.5fr) minmax(102px,1fr) minmax(50px,.58fr) minmax(56px,.68fr)}
+    .counter.primary{grid-template-rows:auto auto}.total-counter{grid-template-rows:auto auto auto!important;gap:5px}
+    .mini{min-height:38px;font-size:.83rem}.total-counter .adjust{margin-top:0}
+    @media (max-width:360px){h1{font-size:.8rem;gap:3px}.gps{width:100px;font-size:.7rem}.value{font-size:2.6rem}}
+    @media (orientation:landscape) and (max-height:520px){.app{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:30px minmax(150px,1fr) minmax(105px,1fr) 44px 44px}.main,.reset-all{min-height:44px}}
   </style>
 </head>
 <body>
@@ -86,14 +93,15 @@
     </svg>
     <div class="roller-clock" id="rollerClock" role="timer" aria-label="Aktuelle Uhrzeit"></div>
     <button class="zero-trip" id="zeroTrip">ETAPPE AUF NULL</button>
-    <div class="adjust" aria-label="Etappe korrigieren">
-      <button class="mini" data-adjust="-10">−10 m</button><button class="mini" data-adjust="-1">−1 m</button>
-      <button class="mini" data-adjust="1">+1 m</button><button class="mini" data-adjust="10">+10 m</button>
-    </div>
+
   </section>
 
-  <section class="counter secondary-counter" aria-label="Gesamtzähler">
+  <section class="counter secondary-counter total-counter" aria-label="Gesamtzähler">
     <div class="counter-top"><span class="counter-title">Gesamt</span><div class="value"><span class="odometer" id="totalKm">0.00</span><span class="unit">km</span></div></div>
+    <div class="adjust" aria-label="Gesamtstrecke korrigieren">
+      <button class="mini" data-adjust="-100">−100 m</button><button class="mini" data-adjust="-10">−10 m</button>
+      <button class="mini" data-adjust="10">+10 m</button><button class="mini" data-adjust="100">+100 m</button>
+    </div>
     <div class="counter-actions"><button class="iconbtn" id="resetTotal">0 KM</button></div>
   </section>
 
@@ -129,6 +137,121 @@
 </dialog>
 
 <script>
+// Pure, replayable distance engine. UI actions never mutate this engine.
+const FILTER_VERSION = 'pandas-2.0.0';
+const FILTER_CONFIG = Object.freeze({maxAccuracyM:25,maxGapS:5,maxSpeedMs:65,
+  startSamples:3,stopSeconds:3,minDeviceMoveMs:0.15,unknownStartM:3,
+  unknownEfficiency:0.8,jumpFloorM:8,jumpSpeedFactor:2,jumpAllowanceM:3,
+  relocationSamples:3,maxPendingSeconds:30,maxFixAgeMs:10000});
+function geoDistance(a,b){
+  const rad=n=>n*Math.PI/180,dlat=rad(b.latitude-a.latitude),dlon=rad(b.longitude-a.longitude);
+  const h=Math.min(1,Math.max(0,Math.sin(dlat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dlon/2)**2));
+  return 12742000*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+}
+class CounterLedger {
+  constructor(saved={}){
+    this.distanceUm=Number.isSafeInteger(saved.distanceUm)?saved.distanceUm:0;
+    this.offsets={trip:0,total:0,road:0,...saved.offsets};
+    this.epochs={trip:0,total:0,road:0};this.remainder=0;
+  }
+  get(key){return (this.distanceUm+this.offsets[key])/1e6;}
+  tags(){return {...this.epochs};}
+  set(key,meters){
+    if(!Number.isFinite(meters)||Math.abs(meters)>1e8)throw new Error('Ungültiger Zählerstand');
+    this.offsets[key]=Math.round(meters*1e6)-this.distanceUm;this.epochs[key]++;
+  }
+  adjust(key,meters){this.offsets[key]+=Math.round(meters*1e6);}
+  commit(segments){
+    let booked=0;
+    for(const s of segments){
+      const exact=s.m*1e6+this.remainder,um=Math.round(exact);this.remainder=exact-um;
+      this.distanceUm+=um;booked+=um/1e6;
+      // Delayed confirmations from before a reset must not reappear in that counter.
+      for(const key of Object.keys(this.offsets))if(s.tags[key]!==this.epochs[key])this.offsets[key]-=um;
+    }
+    return booked;
+  }
+  snapshot(){return {distanceUm:this.distanceUm,offsets:{...this.offsets}};}
+  values(){return {trip:this.get('trip'),total:this.get('total'),road:this.get('road')};}
+}
+class DistanceEngine {
+  constructor(){this.reset();}
+  reset(){this.last=null;this.seenTime=null;this.moving=false;this.pending=[];this.stopPending=[];this.quarantine=[];this.unknownPending=[];this.rates=[];}
+  plausible(a,b){
+    const dt=(b.time-a.time)/1000,d=geoDistance(a,b),cfg=FILTER_CONFIG;
+    if(dt<=0||dt>cfg.maxGapS||d>cfg.maxSpeedMs*dt)return false;
+    if(a.speed!==null&&b.speed!==null){
+      const expected=(a.speed+b.speed)*.5*dt;
+      if(d>Math.max(cfg.jumpFloorM,expected*cfg.jumpSpeedFactor+cfg.jumpAllowanceM))return false;
+    }else if(this.rates.length>=3){
+      const rates=[...this.rates].sort((x,y)=>x-y),median=rates[Math.floor(rates.length/2)];
+      if(d>Math.max(12,median*dt*2+cfg.jumpAllowanceM))return false;
+    }
+    return true;
+  }
+  push(point,running,tags,receivedAt=point.time){
+    const cfg=FILTER_CONFIG;
+    const result={segments:[],decision:'rejected',reason:'',rawM:null,dt:null,derivedKmh:null};
+    const done=(reason,decision='rejected')=>{result.reason=reason;result.decision=decision;return result;};
+    if(!Number.isFinite(point.time)||!Number.isFinite(point.latitude)||Math.abs(point.latitude)>90||
+      !Number.isFinite(point.longitude)||Math.abs(point.longitude)>180)return done('Ungültiger GPS-Punkt');
+    if(this.seenTime!==null&&point.time<=this.seenTime)return done('Veralteter oder doppelter Zeitstempel');
+    this.seenTime=point.time;
+    if(receivedAt-point.time>cfg.maxFixAgeMs||point.time-receivedAt>2000)return done('Veralteter GPS-Fix');
+    const p={...point,speed:Number.isFinite(point.speed)&&point.speed>=0?point.speed:null};
+    if(this.last){result.dt=(p.time-this.last.time)/1000;result.rawM=geoDistance(this.last,p);result.derivedKmh=result.rawM/result.dt*3.6;}
+    if(!running){this.reset();this.seenTime=p.time;return done('Messung pausiert');}
+    if(!Number.isFinite(p.accuracy)||p.accuracy<0||p.accuracy>cfg.maxAccuracyM){this.reset();this.seenTime=p.time;return done('Unzureichende GPS-Genauigkeit');}
+    if(!this.last){this.last=p;return done('Erster GPS-Punkt','anchor');}
+    if(result.dt>cfg.maxGapS){this.reset();this.last=p;this.seenTime=p.time;return done('Zeitlücke: neue Referenz','anchor');}
+    if(!this.plausible(this.last,p)){
+      this.pending=[];this.stopPending=[];this.unknownPending=[];
+      const prev=this.quarantine.at(-1);
+      if(prev&&!this.plausible(prev,p))this.quarantine=[];
+      this.quarantine.push(p);
+      if(this.quarantine.length>=cfg.relocationSamples){
+        // Relocation is never connected to the old location or back-booked.
+        this.reset();this.last=p;this.seenTime=p.time;return done('Positionswechsel bestätigt: neue Referenz','anchor');
+      }
+      return done('Positionssprung zurückgehalten','deferred');
+    }
+    const previous=this.last,afterOutlier=this.quarantine.length>0;
+    this.last=p;this.quarantine=[];
+    const segment={m:result.rawM,fromTime:previous.time,toTime:p.time,tags:{...tags},a:previous,b:p};
+    this.rates.push(segment.m/result.dt);if(this.rates.length>5)this.rates.shift();
+    // A rejected location cannot create a return leg. Only the last trusted fix is used.
+    if(this.moving){
+      if(p.speed===null){
+        this.unknownPending.push(segment);
+        const pending=this.unknownPending,path=pending.reduce((sum,s)=>sum+s.m,0),net=geoDistance(pending[0].a,p);
+        if(pending.length<3)return done('Bewegung ohne Gerätetempo wird geprüft','deferred');
+        if(path<0.15||net/Math.max(path,.001)<cfg.unknownEfficiency){this.unknownPending=[];this.stopPending=[];this.moving=false;return done('Stillstand oder Richtungsrauschen');}
+        result.segments=[...this.stopPending,...pending];this.stopPending=[];this.unknownPending=[];
+        return done('Bewegung ohne Gerätetempo bestätigt','accepted');
+      }
+      if(this.unknownPending.length){this.stopPending.push(...this.unknownPending);this.unknownPending=[];}
+      if(p.speed!==null&&p.speed<=cfg.minDeviceMoveMs){
+        this.stopPending.push(segment);
+        const seconds=(p.time-this.stopPending[0].fromTime)/1000;
+        if(seconds>=cfg.stopSeconds){this.moving=false;this.stopPending=[];return done('Stillstand bestätigt');}
+        return done('Stillstand wird geprüft','deferred');
+      }
+      result.segments=[...this.stopPending,segment];this.stopPending=[];
+      return done(afterOutlier?'Bewegung ab letzter gültiger Referenz':'Bewegung bestätigt','accepted');
+    }
+    if(p.speed!==null&&p.speed<=cfg.minDeviceMoveMs){this.pending=[];return done('Stillstand');}
+    this.pending.push(segment);
+    while(this.pending.length&&(p.time-this.pending[0].fromTime)/1000>cfg.maxPendingSeconds)this.pending.shift();
+    const path=this.pending.reduce((sum,s)=>sum+s.m,0),net=this.pending.length?geoDistance(this.pending[0].a,p):0;
+    const known=this.pending.every(s=>s.b.speed!==null&&s.b.speed>cfg.minDeviceMoveMs);
+    const enough=known?path>=0.5:net>=Math.max(cfg.unknownStartM,p.accuracy*.5)&&net/Math.max(path,.001)>=cfg.unknownEfficiency;
+    if(this.pending.length>=cfg.startSamples&&enough){
+      result.segments=this.pending;this.pending=[];this.moving=true;return done('Anfahren bestätigt','accepted');
+    }
+    return done('Bewegung wird geprüft','deferred');
+  }
+}
+
 (() => {
   document.addEventListener('dblclick',event=>event.preventDefault(),{passive:false});
   const $ = id => document.getElementById(id);
@@ -136,33 +259,51 @@
   function bing(){try{audioContext??=new (window.AudioContext||window.webkitAudioContext)();const now=audioContext.currentTime,osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.setValueAtTime(880,now);osc.frequency.exponentialRampToValueAtTime(1175,now+.07);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.16,now+.008);gain.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now);osc.stop(now+.13)}catch{}}
   document.addEventListener('click',event=>{if(event.target.closest('button'))bing()},true);
   const resumeAfterLoad=localStorage.tripmasterRunning==='1',resumeGpsAfterLoad=localStorage.tripmasterGpsActive==='1';
-  let savedLast=null;try{savedLast=JSON.parse(localStorage.lastGpsPosition||'null')}catch{}
-  const state = {running:false, gpsActive:resumeGpsAfterLoad, watch:null, last:savedLast, trip:+localStorage.trip||0, total:+localStorage.total||0, road:+localStorage.road||0, tripOffset:+localStorage.tripOffset||0, activeMs:+localStorage.activeMs||0, runStarted:null, points:0, wake:null};
-  const LOG_DB='pandas-tripmaster-gps',LOG_VERSION=1;
+  let storedLedger=null;try{storedLedger=JSON.parse(localStorage.tripmasterLedgerV2||'null')}catch{}
+  const ledger=new CounterLedger(storedLedger||{}),engine=new DistanceEngine();
+  if(!storedLedger){ledger.set('trip',(+localStorage.trip||0)+(+localStorage.tripOffset||0));ledger.set('total',+localStorage.total||0);ledger.set('road',+localStorage.road||0);}
+  const state={running:false,gpsActive:resumeGpsAfterLoad,watch:null,activeMs:+localStorage.activeMs||0,runStarted:null,points:0,wake:null,tripOffset:0};
+  for(const key of ['trip','total','road'])Object.defineProperty(state,key,{get:()=>ledger.get(key),set:value=>ledger.set(key,value)});
+  const LOG_DB='pandas-tripmaster-gps',LOG_VERSION=2;
+  let eventQueue=[],flushPromise=null;const exportSnapshots=new Map();
   let logDb=null,loggingEnabled=localStorage.gpsLoggingEnabled==='1',activeLogSession=null,logQueue=[],logFlushTimer=null;
-  function openLogDb(){if(logDb)return Promise.resolve(logDb);return new Promise((resolve,reject)=>{const request=indexedDB.open(LOG_DB,LOG_VERSION);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('sessions'))db.createObjectStore('sessions',{keyPath:'id'});if(!db.objectStoreNames.contains('points')){const points=db.createObjectStore('points',{keyPath:'id',autoIncrement:true});points.createIndex('sessionId','sessionId',{unique:false})}};request.onsuccess=()=>{logDb=request.result;logDb.onversionchange=()=>logDb.close();resolve(logDb)};request.onerror=()=>reject(request.error)})}
+  function openLogDb(){if(logDb)return Promise.resolve(logDb);return new Promise((resolve,reject)=>{const request=indexedDB.open(LOG_DB,LOG_VERSION);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('events')){const events=db.createObjectStore('events',{keyPath:'id',autoIncrement:true});events.createIndex('sessionId','sessionId',{unique:false})}if(!db.objectStoreNames.contains('sessions'))db.createObjectStore('sessions',{keyPath:'id'});if(!db.objectStoreNames.contains('points')){const points=db.createObjectStore('points',{keyPath:'id',autoIncrement:true});points.createIndex('sessionId','sessionId',{unique:false})}};request.onsuccess=()=>{logDb=request.result;logDb.onversionchange=()=>logDb.close();resolve(logDb)};request.onerror=()=>reject(request.error)})}
   function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})}
   const logTime=value=>new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value));
   const logDuration=ms=>{const seconds=Math.max(0,Math.floor(ms/1000)),h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`};
   function showLogError(message=''){const el=$('loggingError');el.hidden=!message;el.textContent=message}
   async function getSession(id){if(!id)return null;const db=await openLogDb();return new Promise((resolve,reject)=>{const r=db.transaction('sessions').objectStore('sessions').get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)})}
-  async function startLogSession(){const db=await openLogDb(),now=Date.now();activeLogSession={id:`${now}-${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}`,startTime:now,endTime:null,pointCount:0,acceptedCount:0,rejectedCount:0,distanceM:0};const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(activeLogSession);await txDone(tx);localStorage.gpsLoggingSession=activeLogSession.id;updateLoggingUi()}
+  async function startLogSession(){const db=await openLogDb(),now=Date.now();activeLogSession={id:`${now}-${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}`,startTime:now,endTime:null,pointCount:0,acceptedCount:0,rejectedCount:0,distanceM:0,filterVersion:FILTER_VERSION,filterConfig:FILTER_CONFIG};const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(activeLogSession);await txDone(tx);localStorage.gpsLoggingSession=activeLogSession.id;updateLoggingUi()}
   async function restoreLogSession(){if(!loggingEnabled)return;try{activeLogSession=await getSession(localStorage.gpsLoggingSession);if(!activeLogSession||activeLogSession.endTime)await startLogSession();else updateLoggingUi()}catch{loggingEnabled=false;localStorage.gpsLoggingEnabled='0';showLogError('GPS-Protokoll konnte nicht geöffnet werden.');updateLoggingUi()}}
-  function queueLogPoint(point){if(!loggingEnabled||!activeLogSession)return;logQueue.push(point);activeLogSession.pointCount++;if(point.accepted){activeLogSession.acceptedCount++;activeLogSession.distanceM+=point.distanceFromPrevious||0}else activeLogSession.rejectedCount++;updateLoggingUi();if(logQueue.length>=20)flushLogQueue();else if(!logFlushTimer)logFlushTimer=setTimeout(flushLogQueue,500)}
-  async function flushLogQueue(){clearTimeout(logFlushTimer);logFlushTimer=null;if(!logQueue.length||!activeLogSession)return;const batch=logQueue.splice(0),snapshot={...activeLogSession};try{const db=await openLogDb(),tx=db.transaction(['points','sessions'],'readwrite'),points=tx.objectStore('points');batch.forEach(point=>points.add(point));tx.objectStore('sessions').put(snapshot);await txDone(tx)}catch{logQueue.unshift(...batch);showLogError('GPS-Punkte konnten nicht gespeichert werden.')}}
+  function queueLogPoint(point){if(!loggingEnabled||!activeLogSession)return;logQueue.push(point);activeLogSession.pointCount++;if(point.accepted){activeLogSession.acceptedCount++;activeLogSession.distanceM+=point.bookedDistanceM||0}else activeLogSession.rejectedCount++;updateLoggingUi();if(logQueue.length>=20)flushLogQueue().catch(()=>{});else if(!logFlushTimer)logFlushTimer=setTimeout(()=>flushLogQueue().catch(()=>{}),500)}
+  async function flushLogQueue(){
+    clearTimeout(logFlushTimer);logFlushTimer=null;
+    if(flushPromise){await flushPromise;return flushLogQueue();}
+    if((!logQueue.length&&!eventQueue.length)||!activeLogSession)return;
+    const batch=logQueue.splice(0),events=eventQueue.splice(0),snapshot={...activeLogSession};
+    flushPromise=(async()=>{try{const db=await openLogDb(),tx=db.transaction(['points','events','sessions'],'readwrite');batch.forEach(p=>tx.objectStore('points').add(p));events.forEach(e=>tx.objectStore('events').add(e));tx.objectStore('sessions').put(snapshot);await txDone(tx)}catch(error){logQueue.unshift(...batch);eventQueue.unshift(...events);showLogError('Protokoll konnte nicht gespeichert werden.');throw error}})();
+    try{await flushPromise}finally{flushPromise=null}
+  }
+  function logEvent(action,before,details={}){
+    if(!loggingEnabled||!activeLogSession)return;
+    eventQueue.push({sessionId:activeLogSession.id,recordType:'event',timestamp:Date.now(),action,before:JSON.stringify(before),after:JSON.stringify(ledger.values()),details:JSON.stringify(details),filterVersion:FILTER_VERSION});
+    if(!logFlushTimer)logFlushTimer=setTimeout(()=>flushLogQueue().catch(()=>{}),500);
+  }
+  function changeCounters(action,operation,details={}){const before=ledger.values();operation();logEvent(action,before,details);persist();draw();}
+  async function sessionEvents(id){const db=await openLogDb();return new Promise((resolve,reject)=>{const r=db.transaction('events').objectStore('events').index('sessionId').getAll(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
   async function closeLogSession(){await flushLogQueue();if(!activeLogSession)return;activeLogSession.endTime=Date.now();try{const db=await openLogDb(),tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(activeLogSession);await txDone(tx)}catch{showLogError('Aufzeichnung konnte nicht abgeschlossen werden.')}activeLogSession=null;localStorage.removeItem('gpsLoggingSession');updateLoggingUi();renderSessions()}
   async function toggleLogging(){showLogError();if(loggingEnabled){loggingEnabled=false;localStorage.gpsLoggingEnabled='0';updateLoggingUi();await closeLogSession()}else{loggingEnabled=true;localStorage.gpsLoggingEnabled='1';try{await startLogSession()}catch{loggingEnabled=false;localStorage.gpsLoggingEnabled='0';showLogError('GPS-Protokoll konnte nicht gestartet werden.')}}updateLoggingUi();renderSessions()}
   function updateLoggingUi(){const toggle=$('loggingToggle');toggle.classList.toggle('on',loggingEnabled);toggle.textContent=loggingEnabled?'EIN':'AUS';toggle.setAttribute('aria-checked',String(loggingEnabled));$('loggingStatus').textContent=loggingEnabled?'Aktiv':'Inaktiv';$('loggingCount').textContent=activeLogSession?.pointCount||0;$('loggingStart').textContent=activeLogSession?logTime(activeLogSession.startTime):'—';$('loggingDuration').textContent=activeLogSession?logDuration(Date.now()-activeLogSession.startTime):'—'}
   async function allSessions(){const db=await openLogDb();return new Promise((resolve,reject)=>{const r=db.transaction('sessions').objectStore('sessions').getAll();r.onsuccess=()=>resolve(r.result.sort((a,b)=>b.startTime-a.startTime));r.onerror=()=>reject(r.error)})}
   async function sessionPoints(sessionId){const db=await openLogDb();return new Promise((resolve,reject)=>{const r=db.transaction('points').objectStore('points').index('sessionId').getAll(sessionId);r.onsuccess=()=>resolve(r.result.sort((a,b)=>a.number-b.number));r.onerror=()=>reject(r.error)})}
   const csvCell=value=>`"${String(value??'').replaceAll('"','""')}"`;
-  async function exportSession(id,type){const session=await getSession(id),points=await sessionPoints(id);if(!session)return;let content,mime,extension;if(type==='csv'){const fields=['number','date','time','timestamp','latitude','longitude','accuracy','deviceSpeedMs','deviceSpeedKmh','heading','altitude','altitudeAccuracy','deltaTime','distanceFromPrevious','derivedSpeedKmh','tripKm','totalKm','roadbookKm','accepted','rejectionReason'];content=[fields.join(','),...points.map(point=>fields.map(field=>csvCell(point[field])).join(','))].join('\r\n');mime='text/csv;charset=utf-8';extension='csv'}else{const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[char]));content=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PANDAs Tripmaster" xmlns="http://www.topografix.com/GPX/1/1" xmlns:pandas="https://pandas-tripmaster.local/gpx"><trk><name>PANDAs Tripmaster ${new Date(session.startTime).toLocaleString('de-DE')}</name><trkseg>${points.map(point=>`<trkpt lat="${point.latitude}" lon="${point.longitude}">${point.altitude==null?'':`<ele>${point.altitude}</ele>`}<time>${new Date(point.timestamp).toISOString()}</time><extensions><pandas:accuracy>${esc(point.accuracy)}</pandas:accuracy><pandas:speedKmh>${esc(point.deviceSpeedKmh)}</pandas:speedKmh><pandas:accepted>${point.accepted}</pandas:accepted><pandas:reason>${esc(point.rejectionReason)}</pandas:reason></extensions></trkpt>`).join('')}</trkseg></trk></gpx>`;mime='application/gpx+xml';extension='gpx'}const stamp=new Date(session.startTime).toISOString().replace(/[:.]/g,'-'),file=new File([content],`pandas-gps-${stamp}.${extension}`,{type:mime});if(navigator.share&&navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:'PANDAs GPS-Protokoll'});return}catch(error){if(error.name==='AbortError')return}}const url=URL.createObjectURL(file),link=document.createElement('a');link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-  async function deleteSession(id){if(!confirm('Diese GPS-Aufzeichnung wirklich löschen?'))return;const db=await openLogDb(),tx=db.transaction(['sessions','points'],'readwrite');tx.objectStore('sessions').delete(id);const points=tx.objectStore('points'),index=points.index('sessionId');index.openKeyCursor(IDBKeyRange.only(id)).onsuccess=event=>{const cursor=event.target.result;if(cursor){points.delete(cursor.primaryKey);cursor.continue()}};await txDone(tx);renderSessions()}
-  async function deleteAllSessions(){if(!confirm('Alle GPS-Aufzeichnungen wirklich löschen?'))return;if(loggingEnabled)await closeLogSession();loggingEnabled=false;localStorage.gpsLoggingEnabled='0';const db=await openLogDb(),tx=db.transaction(['sessions','points'],'readwrite');tx.objectStore('sessions').clear();tx.objectStore('points').clear();await txDone(tx);updateLoggingUi();renderSessions()}
+  async function exportSession(id,type){await flushLogQueue();let snapshot=exportSnapshots.get(id);if(!snapshot||snapshot.types.has(type)){const session=await getSession(id);if(!session)return;snapshot={session,points:await sessionPoints(id),events:await sessionEvents(id),types:new Set()};exportSnapshots.set(id,snapshot)}const {session,points,events}=snapshot;snapshot.types.add(type);if(snapshot.types.size===2)exportSnapshots.delete(id);let content,mime,extension;if(type==='csv'){const fields=['number','date','time','timestamp','latitude','longitude','accuracy','deviceSpeedMs','deviceSpeedKmh','heading','altitude','altitudeAccuracy','deltaTime','distanceFromPrevious','derivedSpeedKmh','tripKm','totalKm','roadbookKm','accepted','rejectionReason','recordType','receivedAt','bookedDistanceM','decision','filterVersion','filterConfig','bookedIntervals','action','before','after','details'];content=[fields.join(','),...[...points,...events].sort((a,b)=>a.timestamp-b.timestamp).map(point=>fields.map(field=>csvCell(point[field])).join(','))].join('\r\n');mime='text/csv;charset=utf-8';extension='csv'}else{const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[char]));content=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PANDAs Tripmaster" xmlns="http://www.topografix.com/GPX/1/1" xmlns:pandas="https://pandas-tripmaster.local/gpx"><trk><name>PANDAs Tripmaster ${new Date(session.startTime).toLocaleString('de-DE')}</name><trkseg>${points.map(point=>`<trkpt lat="${point.latitude}" lon="${point.longitude}">${point.altitude==null?'':`<ele>${point.altitude}</ele>`}<time>${new Date(point.timestamp).toISOString()}</time><extensions><pandas:accuracy>${esc(point.accuracy)}</pandas:accuracy><pandas:speedKmh>${esc(point.deviceSpeedKmh)}</pandas:speedKmh><pandas:accepted>${point.accepted}</pandas:accepted><pandas:reason>${esc(point.rejectionReason)}</pandas:reason><pandas:bookedDistanceM>${esc(point.bookedDistanceM)}</pandas:bookedDistanceM><pandas:bookedIntervals>${esc(point.bookedIntervals)}</pandas:bookedIntervals><pandas:tripKm>${esc(point.tripKm)}</pandas:tripKm><pandas:totalKm>${esc(point.totalKm)}</pandas:totalKm><pandas:roadbookKm>${esc(point.roadbookKm)}</pandas:roadbookKm><pandas:decision>${esc(point.decision)}</pandas:decision><pandas:filterVersion>${esc(point.filterVersion)}</pandas:filterVersion></extensions></trkpt>`).join('')}</trkseg><extensions><pandas:events>${esc(JSON.stringify(events))}</pandas:events><pandas:filterConfig>${esc(JSON.stringify(session.filterConfig||{}))}</pandas:filterConfig></extensions></trk></gpx>`;mime='application/gpx+xml';extension='gpx'}const stamp=new Date(session.startTime).toISOString().replace(/[:.]/g,'-'),file=new File([content],`pandas-gps-${stamp}.${extension}`,{type:mime});if(navigator.share&&navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:'PANDAs GPS-Protokoll'});return}catch(error){if(error.name==='AbortError')return}}const url=URL.createObjectURL(file),link=document.createElement('a');link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+  async function deleteSession(id){if(!confirm('Diese GPS-Aufzeichnung wirklich löschen?'))return;const db=await openLogDb(),tx=db.transaction(['sessions','points','events'],'readwrite');tx.objectStore('sessions').delete(id);exportSnapshots.delete(id);const ei=tx.objectStore('events').index('sessionId');ei.openKeyCursor(IDBKeyRange.only(id)).onsuccess=e=>{const c=e.target.result;if(c){tx.objectStore('events').delete(c.primaryKey);c.continue()}};const points=tx.objectStore('points'),index=points.index('sessionId');index.openKeyCursor(IDBKeyRange.only(id)).onsuccess=event=>{const cursor=event.target.result;if(cursor){points.delete(cursor.primaryKey);cursor.continue()}};await txDone(tx);renderSessions()}
+  async function deleteAllSessions(){if(!confirm('Alle GPS-Aufzeichnungen wirklich löschen?'))return;if(loggingEnabled)await closeLogSession();loggingEnabled=false;localStorage.gpsLoggingEnabled='0';const db=await openLogDb(),tx=db.transaction(['sessions','points','events'],'readwrite');tx.objectStore('sessions').clear();tx.objectStore('points').clear();tx.objectStore('events').clear();exportSnapshots.clear();await txDone(tx);updateLoggingUi();renderSessions()}
   async function renderSessions(){try{const sessions=await allSessions(),list=$('sessionList');list.textContent='';if(!sessions.length)list.innerHTML='<div class="session-empty">Keine Aufzeichnungen vorhanden.</div>';sessions.forEach(session=>{const item=document.createElement('article');item.className='session';const end=session.endTime||Date.now(),isActive=!session.endTime&&session.id===activeLogSession?.id;item.innerHTML=`<div class="session-title"><span>${new Date(session.startTime).toLocaleString('de-DE')}</span><span>${session.endTime?'Beendet':'Aktiv'}</span></div><div class="session-meta">${session.pointCount} Punkte · ${session.acceptedCount} akzeptiert · ${session.rejectedCount} verworfen<br>${(session.distanceM/1000).toFixed(3)} km · ${logDuration(end-session.startTime)}</div><div class="session-actions"><button data-export="csv">CSV</button><button data-export="gpx">GPX</button><button class="delete-session" aria-label="Aufzeichnung löschen" ${isActive?'disabled':''}>LÖSCHEN</button></div>`;item.querySelectorAll('[data-export]').forEach(button=>button.onclick=()=>exportSession(session.id,button.dataset.export));const remove=item.querySelector('.delete-session');if(!isActive)remove.onclick=()=>deleteSession(session.id);list.appendChild(item)});$('deleteAllSessions').hidden=!sessions.length}catch{showLogError('Aufzeichnungen konnten nicht geladen werden.')}}
   const rad = n => n*Math.PI/180;
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
-  const km = m => (Math.max(0,m)/1000).toFixed(2);
+  const km = m => (m/1000).toFixed(2);
   function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char'+(index===value.length-1?' fraction-last':'');const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
   let clockTimer=null;
   function clockValue(){const now=new Date();return[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':')}
@@ -171,32 +312,38 @@
   function scheduleClock(){clearTimeout(clockTimer);updateClock(true);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
   function syncClock(){clearTimeout(clockTimer);updateClock(false);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
   function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
-  const persist=()=>{localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=state.tripOffset;localStorage.activeMs=state.activeMs;localStorage.tripmasterRunning=state.running?'1':'0';localStorage.tripmasterGpsActive=state.gpsActive?'1':'0';if(state.last)localStorage.lastGpsPosition=JSON.stringify(state.last);else if(!state.gpsActive)localStorage.removeItem('lastGpsPosition')};
+  const persist=()=>{try{localStorage.tripmasterLedgerV2=JSON.stringify(ledger.snapshot());localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=0;localStorage.activeMs=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);localStorage.tripmasterRunning=state.running?'1':'0';localStorage.tripmasterGpsActive=state.gpsActive?'1':'0';localStorage.removeItem('lastGpsPosition')}catch{showLogError('Zählerstände konnten nicht dauerhaft gespeichert werden.')}};
   function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1)} km/h`;$('points').textContent=state.points;}
   function gpsStatus(kind,text){$('gpsDot').className='dot '+kind;$('gpsState').className='gps '+kind;$('gpsText').textContent=text;}
-  function position(p){const c=p.coords,liveSpeed=c.speed==null?0:Math.max(0,c.speed*3.6);const accuracy=$('accuracy');accuracy.textContent=`±${Math.round(c.accuracy)} m`;accuracy.className=c.accuracy<=10?'good':'bad';$('speed').textContent=c.speed==null?'—':`${liveSpeed.toFixed(0)} km/h`;updateSpeedometer(liveSpeed);gpsStatus('good','GPS bereit');
-    const now={latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,time:p.timestamp};
-    let changed=false,distanceMeters=null,dt=null,derivedSpeedKmh=null,accepted=false,rejectionReason=state.running?'Erster GPS-Punkt':'Messung pausiert';if(state.last){distanceMeters=distance(state.last,now);dt=Math.max(.1,(now.time-state.last.time)/1000);derivedSpeedKmh=distanceMeters/dt*3.6;const plausible=distanceMeters<=Math.max(35,dt*65),movementThreshold=Math.max(3,Math.min(12,c.accuracy*.5)),movingSpeed=c.speed==null?derivedSpeedKmh:liveSpeed;const genuineMovement=distanceMeters>movementThreshold&&movingSpeed>=3;if(state.running&&genuineMovement&&plausible&&c.accuracy<=25){state.trip+=distanceMeters;state.total+=distanceMeters;state.road+=distanceMeters;state.points++;changed=true;accepted=true;rejectionReason=''}else if(!state.running)rejectionReason='Messung pausiert';else if(!plausible)rejectionReason='Unplausibler Positionssprung';else if(c.accuracy>25)rejectionReason='Genauigkeit über 25 m';else if(distanceMeters<=movementThreshold)rejectionReason='Bewegung unter Mindestdistanz';else rejectionReason='Geschwindigkeit unter 3 km/h';}
-    state.last=now;persist();if(changed)draw();if(loggingEnabled&&activeLogSession){const stamp=new Date(p.timestamp);queueLogPoint({sessionId:activeLogSession.id,number:activeLogSession.pointCount+1,date:stamp.toLocaleDateString('de-DE'),time:stamp.toLocaleTimeString('de-DE',{hour12:false,fractionalSecondDigits:3}),timestamp:p.timestamp,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,deviceSpeedMs:c.speed,deviceSpeedKmh:c.speed==null?null:liveSpeed,heading:c.heading,altitude:c.altitude,altitudeAccuracy:c.altitudeAccuracy,deltaTime:dt,distanceFromPrevious:distanceMeters,derivedSpeedKmh,tripKm:(state.trip+state.tripOffset)/1000,totalKm:state.total/1000,roadbookKm:state.road/1000,accepted,rejectionReason})}
+  function position(p){
+    const c=p.coords,liveSpeed=Number.isFinite(c.speed)&&c.speed>=0?c.speed*3.6:null,receivedAt=Date.now();
+    const accuracy=$('accuracy');accuracy.textContent=Number.isFinite(c.accuracy)?`±${Math.round(c.accuracy)} m`:'—';accuracy.className=c.accuracy<=10?'good':'bad';
+    $('speed').textContent=liveSpeed===null?'—':`${liveSpeed.toFixed(0)} km/h`;updateSpeedometer(liveSpeed||0);
+    const result=engine.push({latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,time:p.timestamp,speed:c.speed},state.running,ledger.tags(),receivedAt);
+    const booked=ledger.commit(result.segments),accepted=result.segments.length>0;
+    if(accepted)state.points+=result.segments.length;
+    gpsStatus(result.decision==='rejected'&&!['Stillstand','Stillstand bestätigt','Messung pausiert'].includes(result.reason)?'bad':'good',result.decision==='deferred'?'GPS prüfen…':result.reason==='Unzureichende GPS-Genauigkeit'?'GPS ungenau':'GPS bereit');
+    persist();draw();
+    if(loggingEnabled&&activeLogSession){const stamp=new Date(p.timestamp);queueLogPoint({sessionId:activeLogSession.id,number:activeLogSession.pointCount+1,recordType:'gps',date:stamp.toLocaleDateString('de-DE'),time:stamp.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+'.'+String(stamp.getMilliseconds()).padStart(3,'0'),timestamp:p.timestamp,receivedAt,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,deviceSpeedMs:c.speed,deviceSpeedKmh:liveSpeed,heading:c.heading,altitude:c.altitude,altitudeAccuracy:c.altitudeAccuracy,deltaTime:result.dt,distanceFromPrevious:result.rawM,derivedSpeedKmh:result.derivedKmh,bookedDistanceM:booked,bookedIntervals:JSON.stringify(result.segments.map(s=>({from:s.fromTime,to:s.toTime,meters:s.m}))),tripKm:state.trip/1000,totalKm:state.total/1000,roadbookKm:state.road/1000,accepted,rejectionReason:accepted?'':result.reason,decision:result.decision,filterVersion:FILTER_VERSION,filterConfig:JSON.stringify(FILTER_CONFIG)})}
   }
   function geoError(e){gpsStatus('bad',e.code===1?'Standort gesperrt':'Kein GPS');}
   async function keepScreenOn(){if(!state.running||!('wakeLock'in navigator))return;try{state.wake=await navigator.wakeLock.request('screen');state.wake.addEventListener('release',()=>{state.wake=null;if(state.running&&document.visibilityState==='visible')setTimeout(keepScreenOn,300)},{once:true})}catch{}}
   function ensureGpsWatch(){if(!navigator.geolocation){geoError({code:0});return}if(state.watch==null){state.watch=navigator.geolocation.watchPosition(position,geoError,{enableHighAccuracy:true,maximumAge:0,timeout:12000});gpsStatus('bad','GPS sucht…')}}
-  async function start(){if(!navigator.geolocation){geoError({code:0});return}const firstStart=!state.gpsActive;state.gpsActive=true;if(firstStart)state.last=null;ensureGpsWatch();state.running=true;state.runStarted=Date.now();$('startStop').textContent='PAUSE';$('startStop').classList.add('running');document.querySelector('.primary').classList.add('running');persist();draw();await keepScreenOn()}
-  function stop(){if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;persist();if(state.wake){state.wake.release().catch(()=>{});state.wake=null}$('startStop').textContent='WEITER';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');draw();}
-  function resetAndStop(){if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;state.last=null;state.running=false;state.gpsActive=false;state.runStarted=null;state.trip=0;state.tripOffset=0;state.total=0;state.road=0;state.activeMs=0;state.points=0;if(state.wake){state.wake.release().catch(()=>{});state.wake=null}updateSpeedometer(0);$('speed').textContent='0 km/h';$('accuracy').textContent='—';$('accuracy').className='';$('startStop').textContent='START';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');gpsStatus('bad','GPS nicht bereit');persist();draw()}
-  function suspendForInterruption(){if(state.running&&state.runStarted){state.activeMs+=Date.now()-state.runStarted;state.runStarted=null}persist();if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;state.last=null;if(state.wake){state.wake.release().catch(()=>{});state.wake=null}}
-  function resumeAfterInterruption(){if(state.gpsActive&&state.watch==null&&document.visibilityState==='visible'){ensureGpsWatch();if(state.running)keepScreenOn()}}
+  async function start(){if(!navigator.geolocation){geoError({code:0});return}if(state.running)return;engine.reset();engine.seenTime=Date.now()-1;logEvent('start',ledger.values());state.gpsActive=true;ensureGpsWatch();state.running=true;state.runStarted=Date.now();$('startStop').textContent='PAUSE';$('startStop').classList.add('running');document.querySelector('.primary').classList.add('running');persist();draw();await keepScreenOn()}
+  function stop(){if(!state.running)return;logEvent('pause',ledger.values());engine.reset();if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;persist();if(state.wake){state.wake.release().catch(()=>{});state.wake=null}$('startStop').textContent='WEITER';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');draw();}
+  function resetAllCounters(){changeCounters('reset-all',()=>{state.trip=0;state.total=0;state.road=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()})}
+  function suspendForInterruption(){if(state.running&&state.runStarted){state.activeMs+=Date.now()-state.runStarted;state.runStarted=null}engine.reset();logEvent('background',ledger.values());persist();if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;if(state.wake){state.wake.release().catch(()=>{});state.wake=null}}
+  function resumeAfterInterruption(){if(state.gpsActive&&state.watch==null&&document.visibilityState==='visible'){engine.seenTime=Date.now()-1;ensureGpsWatch();if(state.running){state.runStarted=Date.now();keepScreenOn()}}}
   $('startStop').onclick=()=>state.running?stop():start();
-  $('zeroTrip').onclick=()=>{state.trip=0;state.tripOffset=0;state.activeMs=0;if(state.running)state.runStarted=Date.now();state.last=null;persist();draw()};
-  $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0.00 km setzen?')){state.total=0;persist();draw()}};
-  $('resetRoadbook').onclick=()=>{if(confirm('Roadbook wirklich auf 0.00 km setzen?')){state.road=0;persist();draw()}};
-  $('resetAll').onclick=()=>{if(confirm('Etappe, Gesamt und Roadbook wirklich gemeinsam auf 0.00 km setzen?'))resetAndStop()};
-  document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{state.tripOffset=Math.max(-state.trip,state.tripOffset+Number(b.dataset.adjust));persist();draw()});
+  $('zeroTrip').onclick=()=>changeCounters('reset-trip',()=>{state.trip=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()});
+  $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0.00 km setzen?')){changeCounters('reset-total',()=>{state.total=0})}};
+  $('resetRoadbook').onclick=()=>{if(confirm('Roadbook wirklich auf 0.00 km setzen?')){changeCounters('reset-road',()=>{state.road=0})}};
+  $('resetAll').onclick=()=>{if(confirm('Etappe, Gesamt und Roadbook wirklich gemeinsam auf 0.00 km setzen?'))resetAllCounters()};
+  document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{changeCounters('adjust-total',()=>ledger.adjust('total',Number(b.dataset.adjust)),{meters:Number(b.dataset.adjust)})});
   $('setRoadbook').onclick=()=>{$('roadInput').value=km(state.road);$('roadDialog').showModal();setTimeout(()=>$('roadInput').select(),50)};
-  $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}state.road=n*1000;persist();draw()});
+  $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}changeCounters('set-road',()=>{state.road=n*1000},{meters:n*1000})});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(clockTimer);suspendForInterruption()}else{syncClock();resumeAfterInterruption()}});
-  window.addEventListener('pagehide',()=>{clearTimeout(clockTimer);flushLogQueue();suspendForInterruption()});
+  window.addEventListener('pagehide',()=>{clearTimeout(clockTimer);flushLogQueue().catch(()=>{});suspendForInterruption()});
   window.addEventListener('pageshow',()=>{syncClock();resumeAfterInterruption()});
   function openSettings(){const page=$('settingsPage');page.classList.add('open');page.setAttribute('aria-hidden','false');renderSessions();updateLoggingUi()}
   function closeSettings(){const page=$('settingsPage');page.classList.remove('open');page.setAttribute('aria-hidden','true')}
@@ -205,12 +352,12 @@
   if(document.modelContext?.registerTool){
     const register=(tool)=>{try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{})}catch{}};
     register({name:'read_tripmaster_state',title:'Tripmaster-Stand lesen',description:'Liest die aktuellen Etappen-, Gesamt- und Roadbook-Kilometer.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>({running:state.running,trip_km:+((state.trip+state.tripOffset)/1000).toFixed(2),total_km:+(state.total/1000).toFixed(2),roadbook_km:+(state.road/1000).toFixed(2)})});
-    register({name:'set_roadbook_distance',title:'Roadbook-Stand setzen',description:'Setzt den Roadbook-Zähler auf einen exakten Kilometerstand; die GPS-Strecke zählt danach von dort weiter.',inputSchema:{type:'object',properties:{kilometers:{type:'number',minimum:0}},required:['kilometers'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({kilometers})=>{if(!Number.isFinite(kilometers)||kilometers<0)throw new Error('kilometers muss eine nicht-negative Zahl sein');state.road=kilometers*1000;persist();draw();return{roadbook_km:+kilometers.toFixed(2)}}});
-    register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0.00 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{state.trip=0;state.tripOffset=0;state.last=null;persist();draw();return{trip_km:0}}});
+    register({name:'set_roadbook_distance',title:'Roadbook-Stand setzen',description:'Setzt den Roadbook-Zähler auf einen exakten Kilometerstand; die GPS-Strecke zählt danach von dort weiter.',inputSchema:{type:'object',properties:{kilometers:{type:'number',minimum:0}},required:['kilometers'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({kilometers})=>{if(!Number.isFinite(kilometers)||kilometers<0)throw new Error('kilometers muss eine nicht-negative Zahl sein');changeCounters('set-road',()=>{state.road=kilometers*1000},{meters:kilometers*1000});return{roadbook_km:+kilometers.toFixed(2)}}});
+    register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0.00 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{changeCounters('reset-trip',()=>{state.trip=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()});return{trip_km:0}}});
   }
   if('serviceWorker'in navigator){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('./sw.js?v=17',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=18',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   setInterval(()=>{if($('settingsPage').classList.contains('open'))updateLoggingUi()},1000);
