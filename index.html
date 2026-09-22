@@ -75,6 +75,16 @@
     .mini{min-height:38px;font-size:.83rem}.total-counter .adjust{margin-top:0}
     @media (max-width:360px){h1{font-size:.8rem;gap:3px}.gps{width:100px;font-size:.7rem}.value{font-size:2.6rem}}
     @media (orientation:landscape) and (max-height:520px){.app{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:30px minmax(150px,1fr) minmax(105px,1fr) 44px 44px}.main,.reset-all{min-height:44px}}
+    /* Reduce only the stage's spare height; preserve all other grid tracks. */
+    @media (orientation:portrait), (min-height:521px){
+      .app{
+        --stage-layout-gap:clamp(7px,1.1dvh,11px);
+        --stage-layout-unit:max(102px,calc((100dvh - 64px - 5 * var(--stage-layout-gap)) / 5.76));
+        min-height:0;
+        grid-template-rows:32px max(178px,calc(2 * var(--stage-layout-unit) - 27mm)) calc(1.5 * var(--stage-layout-unit)) var(--stage-layout-unit) calc(.58 * var(--stage-layout-unit)) calc(.68 * var(--stage-layout-unit));
+      }
+    }
+    @media (orientation:portrait) and (max-height:700px){.app{--stage-layout-gap:5px}}
   </style>
 </head>
 <body>
