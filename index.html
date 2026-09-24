@@ -123,7 +123,7 @@
   <div class="statusbar">
     <div>Genauigkeit<strong id="accuracy">—</strong></div><div>Tempo<strong id="speed">0 km/h</strong></div><div>Ø Tempo<strong id="avgSpeed">0 km/h</strong></div><div>GPS-Punkte<strong id="points">0</strong></div>
   </div>
-  <div class="main-controls"><button class="main" id="startStop">START</button><button class="reset-all" id="resetAll">ALLE AUF NULL</button></div>
+  <div class="main-controls"><button class="reset-all" id="resetAll">ALLE AUF NULL</button><button class="main" id="startStop">START</button></div>
 </main>
 
 <button class="settings-edge" id="settingsEdge" aria-label="Einstellungen öffnen">⚙</button>
@@ -269,10 +269,13 @@ class DistanceEngine {
   function bing(){try{audioContext??=new (window.AudioContext||window.webkitAudioContext)();const now=audioContext.currentTime,osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.setValueAtTime(880,now);osc.frequency.exponentialRampToValueAtTime(1175,now+.07);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.16,now+.008);gain.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now);osc.stop(now+.13)}catch{}}
   document.addEventListener('click',event=>{if(event.target.closest('button'))bing()},true);
   const resumeAfterLoad=localStorage.tripmasterRunning==='1',resumeGpsAfterLoad=localStorage.tripmasterGpsActive==='1';
+  let savedSession=null;try{savedSession=JSON.parse(localStorage.tripmasterSessionV3||'null')}catch{}
   let storedLedger=null;try{storedLedger=JSON.parse(localStorage.tripmasterLedgerV2||'null')}catch{}
+  if(savedSession?.ledger)storedLedger=savedSession.ledger;
   const ledger=new CounterLedger(storedLedger||{}),engine=new DistanceEngine();
   if(!storedLedger){ledger.set('trip',(+localStorage.trip||0)+(+localStorage.tripOffset||0));ledger.set('total',+localStorage.total||0);ledger.set('road',+localStorage.road||0);}
-  const state={running:false,gpsActive:resumeGpsAfterLoad,watch:null,activeMs:+localStorage.activeMs||0,runStarted:null,points:0,wake:null,tripOffset:0};
+  const state={running:false,gpsActive:resumeGpsAfterLoad,watch:null,activeMs:+localStorage.activeMs||0,runStarted:null,points:savedSession?.points||0,wake:null,tripOffset:0,suspended:false,started:savedSession?.started??(resumeAfterLoad||resumeGpsAfterLoad)};
+  if(savedSession)state.activeMs=savedSession.activeMs||0;
   for(const key of ['trip','total','road'])Object.defineProperty(state,key,{get:()=>ledger.get(key),set:value=>ledger.set(key,value)});
   const LOG_DB='pandas-tripmaster-gps',LOG_VERSION=2;
   let eventQueue=[],flushPromise=null;const exportSnapshots=new Map();
@@ -314,7 +317,7 @@ class DistanceEngine {
   const rad = n => n*Math.PI/180;
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
   const km = m => (m/1000).toFixed(2);
-  function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char'+(index===value.length-1?' fraction-last':'');const face=document.createElement('span');const oldChar=old[index]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
+  function setOdometer(id,value){const el=$(id),old=el.dataset.value??value;if(old===value&&el.children.length)return;el.textContent='';[...value].forEach((char,index)=>{const slot=document.createElement('span');slot.className='odo-char'+(index===value.length-1?' fraction-last':'');const face=document.createElement('span');const oldChar=old[index+old.length-value.length]??char;face.textContent=char;face.dataset.old=oldChar;slot.appendChild(face);el.appendChild(slot);if(/\d/.test(char)&&/\d/.test(oldChar)&&char!==oldChar){requestAnimationFrame(()=>slot.classList.add('rolling'));slot.addEventListener('animationend',()=>slot.classList.remove('rolling'),{once:true})}});el.dataset.value=value}
   let clockTimer=null;
   function clockValue(){const now=new Date();return[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':')}
   function initClock(value){const clock=$('rollerClock');clock.textContent='';[...value].forEach((char,index)=>{const part=document.createElement('span');if(char===':'){part.className='clock-colon';part.textContent=':'}else{part.className='clock-digit';part.dataset.clockIndex=index;part.dataset.value=char;part.textContent=char}clock.appendChild(part)})}
@@ -322,28 +325,72 @@ class DistanceEngine {
   function scheduleClock(){clearTimeout(clockTimer);updateClock(true);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
   function syncClock(){clearTimeout(clockTimer);updateClock(false);clockTimer=setTimeout(scheduleClock,Math.max(100,1000-Date.now()%1000+20))}
   function updateSpeedometer(speedKmh){const angle=(-110+(Math.min(160,Math.max(0,speedKmh))/160)*220)*Math.PI/180,needle=$('speedNeedle');needle.setAttribute('x2',(50+Math.sin(angle)*27).toFixed(1));needle.setAttribute('y2',(47-Math.cos(angle)*27).toFixed(1))}
-  const persist=()=>{try{localStorage.tripmasterLedgerV2=JSON.stringify(ledger.snapshot());localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=0;localStorage.activeMs=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);localStorage.tripmasterRunning=state.running?'1':'0';localStorage.tripmasterGpsActive=state.gpsActive?'1':'0';localStorage.removeItem('lastGpsPosition')}catch{showLogError('Zählerstände konnten nicht dauerhaft gespeichert werden.')}};
+  const persist=()=>{try{localStorage.tripmasterSessionV3=JSON.stringify({ledger:ledger.snapshot(),activeMs:state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0),points:state.points,started:state.started,running:state.running,gpsActive:state.gpsActive});localStorage.tripmasterLedgerV2=JSON.stringify(ledger.snapshot());localStorage.trip=state.trip;localStorage.total=state.total;localStorage.road=state.road;localStorage.tripOffset=0;localStorage.activeMs=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);localStorage.tripmasterRunning=state.running?'1':'0';localStorage.tripmasterGpsActive=state.gpsActive?'1':'0';localStorage.removeItem('lastGpsPosition')}catch{showLogError('Zählerstände konnten nicht dauerhaft gespeichert werden.')}};
   function draw(){const shown=state.trip+state.tripOffset;const active=state.activeMs+(state.running&&state.runStarted?Date.now()-state.runStarted:0);const avg=active>0?(state.trip/1000)/(active/3600000):0;setOdometer('tripKm',km(shown));$('tripM').textContent=`${Math.round(Math.max(0,shown))} m`;setOdometer('totalKm',km(state.total));setOdometer('roadKm',km(state.road));$('avgSpeed').textContent=`${avg.toFixed(1)} km/h`;$('points').textContent=state.points;}
   function gpsStatus(kind,text){$('gpsDot').className='dot '+kind;$('gpsState').className='gps '+kind;$('gpsText').textContent=text;}
   function position(p){
     const c=p.coords,liveSpeed=Number.isFinite(c.speed)&&c.speed>=0?c.speed*3.6:null,receivedAt=Date.now();
+    lastGpsAt=receivedAt;
     const accuracy=$('accuracy');accuracy.textContent=Number.isFinite(c.accuracy)?`±${Math.round(c.accuracy)} m`:'—';accuracy.className=c.accuracy<=10?'good':'bad';
     $('speed').textContent=liveSpeed===null?'—':`${liveSpeed.toFixed(0)} km/h`;updateSpeedometer(liveSpeed||0);
     const result=engine.push({latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,time:p.timestamp,speed:c.speed},state.running,ledger.tags(),receivedAt);
     const booked=ledger.commit(result.segments),accepted=result.segments.length>0;
     if(accepted)state.points+=result.segments.length;
-    gpsStatus(result.decision==='rejected'&&!['Stillstand','Stillstand bestätigt','Messung pausiert'].includes(result.reason)?'bad':'good',result.decision==='deferred'?'GPS prüfen…':result.reason==='Unzureichende GPS-Genauigkeit'?'GPS ungenau':'GPS bereit');
+    const validFix=Number.isFinite(c.accuracy)&&c.accuracy>=0&&c.accuracy<=FILTER_CONFIG.maxAccuracyM&&Number.isFinite(p.timestamp)&&receivedAt-p.timestamp<=FILTER_CONFIG.maxFixAgeMs&&p.timestamp-receivedAt<=2000;
+    const rejected=result.decision==='rejected'&&!['Stillstand','Stillstand bestätigt','Messung pausiert'].includes(result.reason);
+    gpsStatus(validFix&&!rejected?'good':'bad',!validFix?'GPS nicht bereit':rejected?'GPS prüfen…':result.decision==='deferred'?'GPS prüfen…':'GPS bereit');
     persist();draw();
     if(loggingEnabled&&activeLogSession){const stamp=new Date(p.timestamp);queueLogPoint({sessionId:activeLogSession.id,number:activeLogSession.pointCount+1,recordType:'gps',date:stamp.toLocaleDateString('de-DE'),time:stamp.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+'.'+String(stamp.getMilliseconds()).padStart(3,'0'),timestamp:p.timestamp,receivedAt,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,deviceSpeedMs:c.speed,deviceSpeedKmh:liveSpeed,heading:c.heading,altitude:c.altitude,altitudeAccuracy:c.altitudeAccuracy,deltaTime:result.dt,distanceFromPrevious:result.rawM,derivedSpeedKmh:result.derivedKmh,bookedDistanceM:booked,bookedIntervals:JSON.stringify(result.segments.map(s=>({from:s.fromTime,to:s.toTime,meters:s.m}))),tripKm:state.trip/1000,totalKm:state.total/1000,roadbookKm:state.road/1000,accepted,rejectionReason:accepted?'':result.reason,decision:result.decision,filterVersion:FILTER_VERSION,filterConfig:JSON.stringify(FILTER_CONFIG)})}
   }
-  function geoError(e){gpsStatus('bad',e.code===1?'Standort gesperrt':'Kein GPS');}
-  async function keepScreenOn(){if(!state.running||!('wakeLock'in navigator))return;try{state.wake=await navigator.wakeLock.request('screen');state.wake.addEventListener('release',()=>{state.wake=null;if(state.running&&document.visibilityState==='visible')setTimeout(keepScreenOn,300)},{once:true})}catch{}}
-  function ensureGpsWatch(){if(!navigator.geolocation){geoError({code:0});return}if(state.watch==null){state.watch=navigator.geolocation.watchPosition(position,geoError,{enableHighAccuracy:true,maximumAge:0,timeout:12000});gpsStatus('bad','GPS sucht…')}}
-  async function start(){if(!navigator.geolocation){geoError({code:0});return}if(state.running)return;engine.reset();engine.seenTime=Date.now()-1;logEvent('start',ledger.values());state.gpsActive=true;ensureGpsWatch();state.running=true;state.runStarted=Date.now();$('startStop').textContent='PAUSE';$('startStop').classList.add('running');document.querySelector('.primary').classList.add('running');persist();draw();await keepScreenOn()}
-  function stop(){if(!state.running)return;logEvent('pause',ledger.values());engine.reset();if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;persist();if(state.wake){state.wake.release().catch(()=>{});state.wake=null}$('startStop').textContent='WEITER';$('startStop').classList.remove('running');document.querySelector('.primary').classList.remove('running');draw();}
-  function resetAllCounters(){changeCounters('reset-all',()=>{state.trip=0;state.total=0;state.road=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()})}
-  function suspendForInterruption(){if(state.running&&state.runStarted){state.activeMs+=Date.now()-state.runStarted;state.runStarted=null}engine.reset();logEvent('background',ledger.values());persist();if(state.watch!=null)navigator.geolocation.clearWatch(state.watch);state.watch=null;if(state.wake){state.wake.release().catch(()=>{});state.wake=null}}
-  function resumeAfterInterruption(){if(state.gpsActive&&state.watch==null&&document.visibilityState==='visible'){engine.seenTime=Date.now()-1;ensureGpsWatch();if(state.running){state.runStarted=Date.now();keepScreenOn()}}}
+  let watchGeneration=0,lastGpsAt=0,watchStartedAt=0,wakePending=false,wakeGeneration=0;
+  function clearLiveGps(){ $('accuracy').textContent='—';$('accuracy').className='bad';$('speed').textContent='0 km/h';updateSpeedometer(0); }
+  function clearGpsWatch(){watchGeneration++;if(state.watch!=null)navigator.geolocation?.clearWatch(state.watch);state.watch=null;engine.reset();}
+  function releaseWake(){wakeGeneration++;const wake=state.wake;state.wake=null;wake?.release().catch(()=>{});}
+  function geoError(e){engine.reset();clearLiveGps();gpsStatus('bad',e.code===1?'Standort gesperrt':'GPS nicht bereit');if(e.code===1)clearGpsWatch();}
+  async function keepScreenOn(){
+    if(!state.running||state.suspended||document.visibilityState!=='visible'||state.wake||wakePending||!('wakeLock'in navigator))return;
+    const generation=wakeGeneration;wakePending=true;
+    try{const wake=await navigator.wakeLock.request('screen');
+      if(generation!==wakeGeneration||!state.running||state.suspended||document.visibilityState!=='visible'){await wake.release();return}
+      state.wake=wake;wake.addEventListener('release',()=>{if(state.wake===wake)state.wake=null},{once:true});
+    }catch{}finally{wakePending=false}
+  }
+  function ensureGpsWatch(){
+    if(!navigator.geolocation){geoError({code:0});return}
+    if(state.suspended||document.visibilityState!=='visible'||state.watch!=null)return;
+    const generation=++watchGeneration;watchStartedAt=Date.now();lastGpsAt=0;engine.reset();engine.seenTime=watchStartedAt-1;
+    gpsStatus('bad','GPS sucht…');
+    try{state.watch=navigator.geolocation.watchPosition(p=>{if(generation===watchGeneration&&!state.suspended)position(p)},e=>{if(generation===watchGeneration)geoError(e)},{enableHighAccuracy:true,maximumAge:0,timeout:12000})}catch{geoError({code:0})}
+  }
+  function drawRunState(){ $('startStop').textContent=state.running?'PAUSE':state.started?'WEITER':'START';$('startStop').classList.toggle('running',state.running);document.querySelector('.primary').classList.toggle('running',state.running); }
+  async function start(){
+    if(!navigator.geolocation){geoError({code:0});return}if(state.running)return;
+    engine.reset();engine.seenTime=Date.now()-1;logEvent(state.started?'resume':'start',ledger.values());
+    state.started=true;state.running=true;state.gpsActive=true;state.suspended=document.visibilityState!=='visible';state.runStarted=state.suspended?null:Date.now();
+    ensureGpsWatch();drawRunState();persist();draw();await keepScreenOn();
+  }
+  function stop(){if(!state.running)return;logEvent('pause',ledger.values());engine.reset();if(state.runStarted)state.activeMs+=Date.now()-state.runStarted;state.runStarted=null;state.running=false;releaseWake();drawRunState();persist();draw();}
+  function resetAllCounters(){
+    clearGpsWatch();releaseWake();state.running=false;state.started=false;state.gpsActive=false;state.runStarted=null;
+    changeCounters('reset-all',()=>{state.trip=0;state.total=0;state.road=0;state.tripOffset=0;state.activeMs=0;state.points=0});
+    drawRunState();clearLiveGps();gpsStatus('bad','GPS nicht bereit');flushLogQueue().catch(()=>{});
+  }
+  function suspendForInterruption(){
+    if(state.suspended)return;state.suspended=true;
+    if(state.running&&state.runStarted){state.activeMs+=Date.now()-state.runStarted;state.runStarted=null}
+    clearGpsWatch();releaseWake();clearLiveGps();gpsStatus('bad','GPS unterbrochen');logEvent('background',ledger.values());persist();flushLogQueue().catch(()=>{});
+  }
+  function resumeAfterInterruption(){
+    if(document.visibilityState!=='visible')return;
+    const wasSuspended=state.suspended;state.suspended=false;
+    if(state.gpsActive){ensureGpsWatch();if(state.running){if(state.runStarted==null)state.runStarted=Date.now();keepScreenOn()}}
+    if(wasSuspended){logEvent('foreground',ledger.values());persist()}drawRunState();draw();
+  }
+  // Some interruptions stop callbacks without delivering a visibility event.
+  setInterval(()=>{if(document.visibilityState!=='visible'||state.suspended||!state.gpsActive)return;
+    if(state.watch!=null&&Date.now()-(lastGpsAt||watchStartedAt)>15000){clearGpsWatch();clearLiveGps();ensureGpsWatch()}
+    if(state.running){persist();keepScreenOn()}
+  },2000);
   $('startStop').onclick=()=>state.running?stop():start();
   $('zeroTrip').onclick=()=>changeCounters('reset-trip',()=>{state.trip=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()});
   $('resetTotal').onclick=()=>{if(confirm('Gesamtstrecke wirklich auf 0.00 km setzen?')){changeCounters('reset-total',()=>{state.total=0})}};
@@ -366,15 +413,18 @@ class DistanceEngine {
     register({name:'reset_stage_distance',title:'Etappe nullstellen',description:'Setzt nur den Etappenzähler auf 0.00 km. Gesamt- und Roadbook-Zähler bleiben unverändert.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{changeCounters('reset-trip',()=>{state.trip=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()});return{trip_km:0}}});
   }
   if('serviceWorker'in navigator){
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('./sw.js?v=18',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!state.running&&!state.started&&!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
+    navigator.serviceWorker.register('./sw.js?v=19',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   setInterval(()=>{if($('settingsPage').classList.contains('open'))updateLoggingUi()},1000);
   draw();
   syncClock();
   updateLoggingUi();const loggingReady=restoreLogSession().then(renderSessions);
-  if(resumeGpsAfterLoad)loggingReady.finally(()=>{if(resumeAfterLoad)start();else{ensureGpsWatch();$('startStop').textContent='WEITER'}});
+  // GPS restoration must not wait for IndexedDB (which can be blocked).
+  const restoreRunning=savedSession?.running??resumeAfterLoad,restoreGps=savedSession?.gpsActive??resumeGpsAfterLoad;
+  state.gpsActive=restoreGps;
+  if(restoreRunning)start();else{if(restoreGps)ensureGpsWatch();drawRunState()}
 })();
 </script>
 </body>
