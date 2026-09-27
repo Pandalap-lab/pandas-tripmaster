@@ -1,4 +1,4 @@
-const CACHE = 'tripmaster-v18-github';
+const CACHE = 'tripmaster-v21-github';
 
 const SHELL = [
   './',
@@ -41,7 +41,7 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put('./?app=18', copy));
+          caches.open(CACHE).then(cache => cache.put('./?app=21', copy));
           return response;
         })
         .catch(() => caches.match('./?app=18'))
