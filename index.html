@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="Tripmaster">
   <title>PANDAs Tripmaster</title>
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=18">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=18">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=22">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=22">
   <style>
     :root{color-scheme:dark;--bg:#070b0e;--panel:#10171c;--line:#243039;--muted:#8fa0aa;--white:#f6f7f8;--orange:#ff5a1f;--green:#35d07f;--red:#ff5757}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -87,6 +87,20 @@
       }
     }
     @media (orientation:portrait) and (max-height:700px){.app{--stage-layout-gap:5px}}
+    /* Build 22: presentation-only refinements. */
+    .settings-row{flex-wrap:wrap}.settings-row>div{flex:1 1 145px;min-width:0}
+    .auto-badge{flex:0 0 auto;white-space:nowrap;max-width:100%}
+    .settings-edge,.route-edge{top:var(--total-tab-top,46%)}
+    .counter.primary{align-content:start;gap:8px;grid-template-rows:minmax(120px,auto) auto}
+    .odo-char>span{position:relative}.odo-char.rolling>span::before{top:-.82em}
+    @keyframes odo-roll{from{transform:translateY(.82em)}to{transform:translateY(0)}}
+    #resetDialog .dialog-actions button{min-height:60px;font-size:1.05rem}
+    #resetDialog .reset-ok{background:var(--red);color:#180303}
+    #resetDialog .reset-cancel{background:var(--green);color:#07100b}
+    .map-credit{position:absolute;bottom:0;right:0;padding:3px 6px;background:#070b0eeb;color:var(--white);font-size:10px}
+    .map-credit a{color:inherit}
+    @media (orientation:landscape) and (max-height:520px){.counter.primary{grid-template-rows:minmax(99px,auto) auto;gap:6px}}
+    @media (prefers-reduced-motion:reduce){.odo-char.rolling>span,.clock-digit.rolling .clock-old,.clock-digit.rolling .clock-new{animation:none}.clock-digit.rolling .clock-old{display:none}.clock-digit.rolling .clock-new{transform:none}}
   </style>
 </head>
 <body>
@@ -147,13 +161,18 @@
     <section class="settings-card">
       <h3>ETAPPE AUSWÄHLEN</h3>
       <select class="route-select" id="routeSessionSelect" aria-label="Aufgezeichnete Etappe auswählen"></select>
-      <div class="route-frame"><svg id="routeSvg" viewBox="0 0 320 420" role="img" aria-label="Verbundene GPS-Punkte der Etappe"></svg><div class="route-empty" id="routeEmpty">Noch keine GPS-Punkte vorhanden.</div></div>
+      <div class="route-frame"><svg id="routeSvg" viewBox="0 0 320 420" role="img" aria-label="Verbundene GPS-Punkte der Etappe"></svg><div class="map-credit" id="mapCredit" hidden>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div><div class="route-empty" id="routeEmpty">Noch keine GPS-Punkte vorhanden.</div></div>
       <div class="route-meta"><div>Punkte<strong id="routePointCount">0</strong></div><div>Strecke<strong id="routeDistance">0,000 km</strong></div><div>Dauer<strong id="routeDuration">0:00</strong></div></div>
     </section>
-    <p class="settings-note">Die Darstellung verbindet die gespeicherten GPS-Punkte direkt auf dem Gerät. Sie funktioniert auch offline und verwendet keine Kartenkacheln.</p>
+    <p class="settings-note">Die Darstellung verbindet die gespeicherten GPS-Punkte direkt auf dem Gerät. Online erscheint eine OpenStreetMap-Karte im Hintergrund. Offline oder bei nicht verfügbarer Karte bleibt die bisherige Streckenzeichnung.</p>
   </div>
 </aside>
 
+<dialog id="resetDialog" aria-labelledby="resetTitle" aria-describedby="resetDescription">
+  <form method="dialog" id="resetForm"><h2 id="resetTitle">ALLE AUF NULL?</h2><p id="resetDescription">Etappe, Gesamt und Roadbook auf 0.00 km setzen und die Messung beenden?</p>
+    <div class="dialog-actions"><button class="reset-ok" value="reset">OK</button><button class="reset-cancel" value="cancel" autofocus>Abbrechen</button></div>
+  </form>
+</dialog>
 <dialog id="roadDialog">
   <form method="dialog" id="roadForm"><h2>Roadbook-Stand</h2><p>Genaue Streckenangabe eingeben. Ab diesem Wert wird weitergezählt.</p>
     <label class="entry"><input id="roadInput" inputmode="decimal" value="0.00" aria-label="Roadbook Kilometer"><span>km</span></label>
@@ -161,6 +180,7 @@
   </form>
 </dialog>
 
+<script src="./route-map.js?v=22"></script>
 <script>
 // Pure, replayable distance engine. UI actions never mutate this engine.
 const FILTER_VERSION = 'pandas-2.0.0';
@@ -330,7 +350,8 @@ class DistanceEngine {
   async function deleteAllSessions(){if(!confirm('Alle GPS-Aufzeichnungen wirklich löschen?'))return;if(loggingEnabled)await closeLogSession();loggingEnabled=false;localStorage.gpsLoggingEnabled='0';const db=await openLogDb(),tx=db.transaction(['sessions','points','events'],'readwrite');tx.objectStore('sessions').clear();tx.objectStore('points').clear();tx.objectStore('events').clear();exportSnapshots.clear();await txDone(tx);updateLoggingUi();renderSessions()}
   async function renderSessions(){try{const sessions=await allSessions(),list=$('sessionList');list.textContent='';if(!sessions.length)list.innerHTML='<div class="session-empty">Keine Aufzeichnungen vorhanden.</div>';sessions.forEach((session,index)=>{const item=document.createElement('article');item.className='session';const end=session.endTime||Date.now(),isActive=!session.endTime&&session.id===activeLogSession?.id;item.innerHTML=`<div class="session-title"><span>Etappe ${session.stageNumber||sessions.length-index} · ${new Date(session.startTime).toLocaleString('de-DE')}</span><span>${session.endTime?'Beendet':'Aktiv'}</span></div><div class="session-meta">${session.pointCount} Punkte · ${session.acceptedCount} akzeptiert · ${session.rejectedCount} verworfen<br>${(session.distanceM/1000).toFixed(3)} km · ${logDuration(end-session.startTime)}</div><div class="session-actions"><button data-export="csv">CSV</button><button data-export="gpx">GPX</button><button class="delete-session" aria-label="Aufzeichnung löschen" ${isActive?'disabled':''}>LÖSCHEN</button></div>`;item.querySelectorAll('[data-export]').forEach(button=>button.onclick=()=>exportSession(session.id,button.dataset.export));const remove=item.querySelector('.delete-session');if(!isActive)remove.onclick=()=>deleteSession(session.id);list.appendChild(item)});$('deleteAllSessions').hidden=!sessions.length}catch{showLogError('Aufzeichnungen konnten nicht geladen werden.')}}
   async function renderRouteSessions(){const sessions=await allSessions(),select=$('routeSessionSelect'),selected=select.value||activeLogSession?.id||sessions[0]?.id;select.textContent='';sessions.forEach((session,index)=>{const option=document.createElement('option');option.value=session.id;option.textContent=`Etappe ${session.stageNumber||sessions.length-index} · ${new Date(session.startTime).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`;select.appendChild(option)});if(sessions.some(session=>session.id===selected))select.value=selected;else if(sessions.length)select.value=sessions[0].id;await renderRoute(select.value)}
-  async function renderRoute(sessionId){const svg=$('routeSvg'),empty=$('routeEmpty');svg.textContent='';if(!sessionId){empty.hidden=false;$('routePointCount').textContent='0';$('routeDistance').textContent='0,000 km';$('routeDuration').textContent='0:00';return}await flushLogQueue();const [session,stored]=await Promise.all([getSession(sessionId),sessionPoints(sessionId)]),points=stored.filter(point=>Number.isFinite(point.latitude)&&Number.isFinite(point.longitude)&&(point.accepted||point.decision==='anchor'||point.number===1));$('routePointCount').textContent=stored.length;$('routeDistance').textContent=`${((session?.distanceM||0)/1000).toFixed(3).replace('.',',')} km`;$('routeDuration').textContent=logDuration((session?.endTime||Date.now())-(session?.startTime||Date.now()));if(points.length<2){empty.hidden=false;return}empty.hidden=true;const stride=Math.max(1,Math.ceil(points.length/900)),shown=points.filter((_,index)=>index%stride===0);if(shown.at(-1)!==points.at(-1))shown.push(points.at(-1));const meanLat=shown.reduce((sum,point)=>sum+point.latitude,0)/shown.length,scale=Math.cos(meanLat*Math.PI/180),xs=shown.map(point=>point.longitude*scale),ys=shown.map(point=>point.latitude),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),rangeX=Math.max(maxX-minX,1e-8),rangeY=Math.max(maxY-minY,1e-8),pad=18,w=320,h=420,fit=Math.min((w-pad*2)/rangeX,(h-pad*2)/rangeY),coords=shown.map((point,index)=>`${(w/2+(xs[index]-(minX+maxX)/2)*fit).toFixed(1)},${(h/2-(ys[index]-(minY+maxY)/2)*fit).toFixed(1)}`);const ns='http://www.w3.org/2000/svg',line=document.createElementNS(ns,'polyline');line.setAttribute('class','route-line');line.setAttribute('points',coords.join(' '));svg.appendChild(line);[[coords[0],'route-start'],[coords.at(-1),'route-end']].forEach(([coord,className])=>{const [cx,cy]=coord.split(','),circle=document.createElementNS(ns,'circle');circle.setAttribute('class',className);circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r','5');svg.appendChild(circle)})}
+  let routeRenderToken=0;
+  async function renderRoute(sessionId){const token=++routeRenderToken;RouteMap.clear();const svg=$('routeSvg'),empty=$('routeEmpty');svg.textContent='';if(!sessionId){empty.hidden=false;$('routePointCount').textContent='0';$('routeDistance').textContent='0,000 km';$('routeDuration').textContent='0:00';return}await flushLogQueue();const [session,stored]=await Promise.all([getSession(sessionId),sessionPoints(sessionId)]),points=stored.filter(point=>Number.isFinite(point.latitude)&&Number.isFinite(point.longitude)&&(point.accepted||point.decision==='anchor'||point.number===1));if(token!==routeRenderToken)return;$('routePointCount').textContent=stored.length;$('routeDistance').textContent=`${((session?.distanceM||0)/1000).toFixed(3).replace('.',',')} km`;$('routeDuration').textContent=logDuration((session?.endTime||Date.now())-(session?.startTime||Date.now()));if(points.length<2){empty.hidden=false;return}empty.hidden=true;const stride=Math.max(1,Math.ceil(points.length/900)),shown=points.filter((_,index)=>index%stride===0);if(shown.at(-1)!==points.at(-1))shown.push(points.at(-1));const meanLat=shown.reduce((sum,point)=>sum+point.latitude,0)/shown.length,scale=Math.cos(meanLat*Math.PI/180),xs=shown.map(point=>point.longitude*scale),ys=shown.map(point=>point.latitude),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),rangeX=Math.max(maxX-minX,1e-8),rangeY=Math.max(maxY-minY,1e-8),pad=18,w=320,h=420,fit=Math.min((w-pad*2)/rangeX,(h-pad*2)/rangeY),coords=shown.map((point,index)=>`${(w/2+(xs[index]-(minX+maxX)/2)*fit).toFixed(1)},${(h/2-(ys[index]-(minY+maxY)/2)*fit).toFixed(1)}`);const ns='http://www.w3.org/2000/svg',line=document.createElementNS(ns,'polyline');line.setAttribute('class','route-line');line.setAttribute('points',coords.join(' '));svg.appendChild(line);[[coords[0],'route-start'],[coords.at(-1),'route-end']].forEach(([coord,className])=>{const [cx,cy]=coord.split(','),circle=document.createElementNS(ns,'circle');circle.setAttribute('class',className);circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r','5');svg.appendChild(circle)});RouteMap.show(svg,shown)}
   const rad = n => n*Math.PI/180;
   const distance = (a,b) => {const R=6371000,dLat=rad(b.latitude-a.latitude),dLon=rad(b.longitude-a.longitude);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));};
   const km = m => (m/1000).toFixed(2);
@@ -416,7 +437,8 @@ class DistanceEngine {
   },2000);
   $('startStop').onclick=()=>state.running?stop():start();
   $('zeroTrip').onclick=()=>changeCounters('reset-trip',()=>{state.trip=0;state.activeMs=0;if(state.running)state.runStarted=Date.now()});
-  $('resetAll').onclick=()=>{if(confirm('Etappe, Gesamt und Roadbook wirklich gemeinsam auf 0.00 km setzen?'))resetAllCounters()};
+  $('resetAll').onclick=()=>$('resetDialog').showModal();
+  $('resetForm').addEventListener('submit',event=>{if(event.submitter?.value==='reset')resetAllCounters()});
   document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{changeCounters('adjust-total',()=>ledger.adjust('total',Number(b.dataset.adjust)),{meters:Number(b.dataset.adjust)})});
   $('setRoadbook').onclick=()=>{$('roadInput').value=km(state.road);$('roadDialog').showModal();setTimeout(()=>$('roadInput').select(),50)};
   $('roadForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;const n=parseFloat($('roadInput').value.replace(',','.'));if(!Number.isFinite(n)||n<0){e.preventDefault();return}changeCounters('set-road',()=>{state.road=n*1000},{meters:n*1000})});
@@ -426,8 +448,15 @@ class DistanceEngine {
   function openSettings(){closeRoute();const page=$('settingsPage');page.classList.add('open');page.setAttribute('aria-hidden','false');renderSessions();updateLoggingUi()}
   function closeSettings(){const page=$('settingsPage');page.classList.remove('open');page.setAttribute('aria-hidden','true')}
   function openRoute(){closeSettings();const page=$('routePage');page.classList.add('open');page.setAttribute('aria-hidden','false');renderRouteSessions().catch(()=>{$('routeEmpty').hidden=false;$('routeEmpty').textContent='Route konnte nicht geladen werden.'})}
-  function closeRoute(){const page=$('routePage');page.classList.remove('open');page.setAttribute('aria-hidden','true')}
+  function closeRoute(){routeRenderToken++;RouteMap.clear();const page=$('routePage');page.classList.remove('open');page.setAttribute('aria-hidden','true')}
   $('settingsEdge').onclick=openSettings;$('settingsBack').onclick=closeSettings;$('deleteAllSessions').onclick=deleteAllSessions;$('routeEdge').onclick=openRoute;$('routeBack').onclick=closeRoute;$('routeSessionSelect').onchange=event=>renderRoute(event.target.value);
+  function refreshRouteMap(){if($('routePage').classList.contains('open'))renderRoute($('routeSessionSelect').value).catch(()=>{})}
+  window.addEventListener('online',refreshRouteMap);
+  let routeResizeTimer;
+  window.addEventListener('resize',()=>{clearTimeout(routeResizeTimer);routeResizeTimer=setTimeout(refreshRouteMap,150)});
+  function alignSideTabs(){const rect=document.querySelector('.total-counter .counter-top').getBoundingClientRect();document.documentElement.style.setProperty('--total-tab-top', (rect.top+rect.height/2)+'px')}
+  new ResizeObserver(alignSideTabs).observe(document.querySelector('.app'));
+  window.addEventListener('resize',alignSideTabs);alignSideTabs();
   let swipeStart=null;document.addEventListener('touchstart',event=>{if(event.touches.length!==1)return;const touch=event.touches[0],settingsOpen=$('settingsPage').classList.contains('open'),routeOpen=$('routePage').classList.contains('open'),rightEdge=touch.clientX>=innerWidth-28;if(settingsOpen||routeOpen||touch.clientX<=28||rightEdge)swipeStart={x:touch.clientX,y:touch.clientY,panel:settingsOpen?'settings':routeOpen?'route':touch.clientX<=28?'left':'right'}},{passive:true});document.addEventListener('touchend',event=>{if(!swipeStart)return;const touch=event.changedTouches[0],dx=touch.clientX-swipeStart.x,dy=Math.abs(touch.clientY-swipeStart.y);if(dy<55&&Math.abs(dx)>70&&Math.abs(dx)>dy*1.2){if(swipeStart.panel==='left'&&dx>0)openSettings();if(swipeStart.panel==='settings'&&dx<0)closeSettings();if(swipeStart.panel==='right'&&dx<0)openRoute();if(swipeStart.panel==='route'&&dx>0)closeRoute()}swipeStart=null},{passive:true});
   if(document.modelContext?.registerTool){
     const register=(tool)=>{try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{})}catch{}};
@@ -437,7 +466,7 @@ class DistanceEngine {
   }
   if('serviceWorker'in navigator){
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!state.running&&!state.started&&!sessionStorage.tripmasterReloaded){sessionStorage.tripmasterReloaded='1';location.reload()}});
-    navigator.serviceWorker.register('./sw.js?v=21',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=22',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
   }
   setInterval(draw,1000);
   setInterval(()=>{if($('settingsPage').classList.contains('open'))updateLoggingUi();if($('routePage').classList.contains('open')&&$('routeSessionSelect').value===activeLogSession?.id)renderRoute(activeLogSession.id).catch(()=>{})},2000);
