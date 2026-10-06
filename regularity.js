@@ -8,29 +8,38 @@ window.RegularityUI = (() => {
   function create(Engine,onStart){
     const engine=new Engine();
     let run=null,mode=false,lastFix=null,storageError=false;
+    // Draft stays in memory across view changes; no GLP history is created.
+    const draft={distance:'5,00',minutes:'07',seconds:'30'};
+    function captureDraft(){if($('regDistance')){draft.distance=$('regDistance').value;draft.minutes=$('regMinutes').value;draft.seconds=$('regSeconds').value}}
     try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');
       if(saved&&['running','finished','stopped'].includes(saved.status)&&Number.isFinite(saved.targetM)&&saved.targetM>0&&Number.isFinite(saved.targetMs)&&saved.targetMs>0&&Number.isFinite(saved.startedAt)&&Number.isFinite(saved.distanceM)&&saved.distanceM>=0){run=saved;if(run.status==='running')run.interrupted=true;}
     }catch{}
     function persist(){try{if(run)localStorage.setItem(KEY,JSON.stringify(run));else localStorage.removeItem(KEY);storageError=false}catch{storageError=true}}
     function isRunning(){return run?.status==='running'}
     function elapsed(now=Date.now()){return run?Math.max(0,(run.endedAt??now)-run.startedAt):0}
-    function setMode(value){mode=value;$('roadbookPanel').classList.toggle('regularity-mode',value);$('regularityPanel').hidden=!value;if(value)render();updateBadge()}
+    function setMode(value){if(!value&&!run)captureDraft();mode=value;$('roadbookPanel').classList.toggle('regularity-mode',value);$('regularityPanel').hidden=!value;if(value)render();updateBadge()}
     function updateBadge(){$('openRegularity').textContent=isRunning()?'GLP LÄUFT ›':'GLEICHMÄSSIGKEIT'}
-    function parse(){const km=Number($('regDistance').value.trim().replace(',','.')),match=/^(\d{1,4}):([0-5]\d)$/.exec($('regTime').value.trim());const seconds=match?Number(match[1])*60+Number(match[2]):0;return km>0&&km<=1000&&seconds>0?{targetM:km*1000,targetMs:seconds*1000}:null}
+    function parse(){
+      const km=Number($('regDistance').value.trim().replace(',','.')),minutes=$('regMinutes').value.trim(),seconds=$('regSeconds').value.trim();
+      if(!/^\d{1,4}$/.test(minutes)||!/^\d{1,2}$/.test(seconds)||Number(seconds)>59)return null;
+      const total=Number(minutes)*60+Number(seconds);
+      return Number.isFinite(km)&&km>0&&km<=1000&&total>0?{targetM:km*1000,targetMs:total*1000}:null;
+    }
     function head(title){return `<div class="reg-head"><strong>${title}</strong><button class="reg-back" id="regBack">ROADBOOK ›</button></div>`}
     function render(){
       const panel=$('regularityPanel');
-      if(!run){panel.innerHTML=head('GLEICHMÄSSIGKEIT')+`<div class="reg-fields"><label>Strecke (km)<input id="regDistance" inputmode="decimal" value="5,00" autocomplete="off"></label><label>Sollzeit (mm:ss)<input id="regTime" inputmode="numeric" value="07:30" autocomplete="off"></label></div><p class="reg-note">Soll-Ø <strong id="regPreview">40,0 km/h</strong> · eigener Start</p><p class="reg-error" id="regError" hidden></p><button class="iconbtn" id="regStart">GLEICHMÄSSIGKEIT STARTEN</button>`;
-        const preview=()=>{const p=parse();$('regPreview').textContent=p?decimal(p.targetM/p.targetMs*3600)+' km/h':'—'};
-        $('regDistance').oninput=preview;$('regTime').oninput=preview;
+      if(!run){panel.innerHTML=head('GLEICHMÄSSIGKEIT')+`<div class="reg-fields"><label>Strecke (km)<input id="regDistance" inputmode="decimal" value="5,00" autocomplete="off"></label><label>Sollzeit (min : sek)<span class="reg-time"><input id="regMinutes" aria-label="Sollzeit Minuten" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"><span aria-hidden="true">:</span><input id="regSeconds" aria-label="Sollzeit Sekunden" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off"></span></label></div><p class="reg-note">Soll-Ø <strong id="regPreview">40,0 km/h</strong> · separat</p><p class="reg-error" id="regError" hidden></p><button class="iconbtn" id="regStart">GLP START</button>`;
+        $('regDistance').value=draft.distance;$('regMinutes').value=draft.minutes;$('regSeconds').value=draft.seconds;
+        const preview=()=>{captureDraft();const p=parse();$('regPreview').textContent=p?decimal(p.targetM/p.targetMs*3600)+' km/h':'—'};
+        $('regDistance').oninput=preview;$('regMinutes').oninput=preview;$('regSeconds').oninput=preview;preview();
         $('regStart').onclick=()=>{
-          const p=parse();if(!p){$('regError').hidden=false;$('regError').textContent='Strecke > 0 bis 1000 km und Zeit als mm:ss eingeben.';return}
+          captureDraft();const p=parse();if(!p){$('regError').hidden=false;$('regError').textContent='Strecke > 0 bis 1000 km, Minuten und Sekunden (0–59) eingeben.';return}
           const now=Date.now();
           if(!lastFix||now-lastFix.receivedAt>5000||now-lastFix.timestamp>5000||lastFix.timestamp>now+2000||!Number.isFinite(lastFix.coords.accuracy)||lastFix.coords.accuracy>25||lastFix.coords.accuracy<0){$('regError').hidden=false;$('regError').textContent='Bitte auf einen aktuellen GPS-Fix (±25 m oder besser) warten.';return}
           run={...p,status:'running',startedAt:now,endedAt:null,distanceM:0,interrupted:false};engine.reset();engine.seenTime=now-1;persist();render();updateBadge();onStart();
         };
       }else{
-        const running=isRunning();panel.innerHTML=head(running?'GLEICHMÄSSIGKEIT LÄUFT':run.status==='finished'?'GLEICHMÄSSIGKEIT BEENDET':'GLEICHMÄSSIGKEIT GESTOPPT')+`<div class="reg-large"><label>${running?'Reststrecke':'Strecke'}<strong id="regMeters"></strong></label><label>${running?'Restzeit':'Istzeit'}<strong id="regClock"></strong></label></div><div class="reg-small"><span>Soll-Ø <strong id="regTarget"></strong></span><span>Ø seit Start <strong id="regAverage"></strong></span><span>Abweichung <strong id="regDelta"></strong></span></div><p class="reg-note" id="regNote"></p><div class="reg-actions"><button class="iconbtn" id="regAction">${running?'MESSUNG STOPPEN':'NEU'}</button></div>`;
+        const running=isRunning();panel.innerHTML=head(running?'GLEICHMÄSSIGKEIT LÄUFT':run.status==='finished'?'GLEICHMÄSSIGKEIT BEENDET':'GLEICHMÄSSIGKEIT GESTOPPT')+`<div class="reg-large"><label>${running?'Reststrecke':'Strecke'}<strong id="regMeters"></strong></label><label>${running?'Restzeit':'Istzeit'}<strong id="regClock"></strong></label></div><div class="reg-small"><span>Soll-Ø <strong id="regTarget"></strong></span><span>Ø seit Start <strong id="regAverage"></strong></span><span>Abweichung <strong id="regDelta"></strong></span></div><p class="reg-note" id="regNote"></p><div class="reg-actions"><button class="iconbtn" id="regAction">${running?'GLP STOPPEN':'NEUE GLP'}</button></div>`;
         $('regAction').onclick=()=>{if(isRunning()){if(!confirm('Nur die Gleichmäßigkeitsmessung stoppen?'))return;run.status='stopped';run.endedAt=Date.now();persist()}else{run=null;engine.reset();persist()}render();updateBadge()};tick();
       }
       $('regBack').onclick=()=>setMode(false);
@@ -69,3 +78,4 @@ window.RegularityUI = (() => {
   }
   return {create};
 })();
+
