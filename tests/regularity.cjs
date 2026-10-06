@@ -12,7 +12,7 @@ function setup(saved){
 }
 {
  const {dom,w,click,gps,time}=setup(),before=w.localStorage.tripmasterLedgerV2;
- click('openRegularity');w.document.getElementById('regDistance').value='0,05';w.document.getElementById('regTime').value='00:05';
+ click('openRegularity');w.document.getElementById('regDistance').value='0,05';w.document.getElementById('regMinutes').value='00';w.document.getElementById('regSeconds').value='05';
  click('regStart');assert.equal(w.reg.isRunning(),false,'GPS required');
  gps(100000,0);click('regStart');assert.equal(w.reg.isRunning(),true);
  for(let i=0;i<=6;i++)gps(100000+i*1000,i*10);
@@ -32,7 +32,7 @@ function setup(saved){
  const resumed=setup(saved);assert.equal(resumed.w.reg.isRunning(),true);assert.equal(resumed.w.document.getElementById('regularityPanel').hidden,false);resumed.dom.window.close();
 }
 {
- const {dom,w,click,gps}=setup();click('openRegularity');gps(100000,0);w.document.getElementById('regTime').value='00:01';click('regStart');
+ const {dom,w,click,gps}=setup();click('openRegularity');gps(100000,0);w.document.getElementById('regMinutes').value='00';w.document.getElementById('regSeconds').value='01';click('regStart');
  gps(102000,0,0);assert.ok(w.document.getElementById('regClock').textContent.startsWith('−'),'overdue displayed');assert.equal(w.reg.isRunning(),true,'time expiry does not finish distance run');
  click('regAction');assert.equal(JSON.parse(w.localStorage.tripmasterRegularityV1).status,'stopped');dom.window.close();
 }
@@ -41,11 +41,12 @@ function setup(saved){
  const {dom,w}=setup();Object.defineProperty(w.navigator,'onLine',{value:false,configurable:true});w.eval(fs.readFileSync(path.join(root,'route-map.js'),'utf8'));
  const svg=w.document.getElementById('routeSvg'),stages=[{number:2,points:[{latitude:48,longitude:16},{latitude:48.01,longitude:16.01}]},{number:5,points:[{latitude:48.1,longitude:16.1},{latitude:48.11,longitude:16.11}]}];
  await w.RouteMap.show(svg,stages);const fallback=svg.innerHTML;
- assert.equal(svg.querySelectorAll('polyline').length,2);assert.equal(svg.querySelectorAll('.route-start').length,2);assert.equal(svg.querySelectorAll('.route-end').length,2);assert.deepEqual([...svg.querySelectorAll('text')].map(t=>t.textContent),['S 2','E 2','S 5','E 5']);
+ assert.equal(svg.querySelectorAll('.route-line').length,2);const names=[...svg.querySelectorAll('.route-marker')].map(n=>n.getAttribute('aria-label')).join(' ');for(const text of ['Start Etappe 2','Ende Etappe 2','Start Etappe 5','Ende Etappe 5'])assert.ok(names.includes(text),'all endpoints available, also when grouped');
  Object.defineProperty(svg,'clientWidth',{value:360});Object.defineProperty(svg,'clientHeight',{value:480});Object.defineProperty(w.navigator,'onLine',{value:true,configurable:true});
  w.Image=class{set src(value){queueMicrotask(()=>this.onload?.())}};
- await w.RouteMap.show(svg,stages);assert.ok(svg.querySelectorAll('image').length>0);w.RouteMap.clear();assert.equal(svg.innerHTML,fallback);
+ await w.RouteMap.show(svg,stages);assert.ok(svg.querySelectorAll('image').length>0);w.dispatchEvent(new w.Event('offline'));assert.equal(svg.querySelectorAll('image').length,0);assert.equal(svg.querySelectorAll('.route-line').length,2);
  w.Image=class{set src(value){queueMicrotask(()=>this.onerror?.())}};
  await w.RouteMap.show(svg,[{number:3,points:[{latitude:2,longitude:3},{latitude:2.01,longitude:3.01}]}]);assert.equal(svg.querySelectorAll('image').length,0);
  dom.window.close();console.log('PASS: independent regularity, validation, finish interpolation, frozen result, GPS gaps, reload, overdue timer, map stage separation, numbered markers, online success/failure and offline fallback');
 })().catch(e=>{console.error(e);process.exitCode=1});
+

@@ -1,11 +1,11 @@
-const CACHE = 'tripmaster-v23-github';
+const CACHE = 'tripmaster-v24-github';
 
 const SHELL = [
   './',
-  './?app=23',
+  './?app=24',
   './manifest.webmanifest',
-  './route-map.js?v=23',
-  './regularity.js?v=23',
+  './route-map.js?v=24',
+  './regularity.js?v=24',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png'
@@ -26,7 +26,7 @@ self.addEventListener('activate', event =>
       caches.keys().then(keys =>
         Promise.all(
           keys
-            .filter(key => key !== CACHE)
+            .filter(key => key.startsWith('tripmaster-') && key !== CACHE)
             .map(key => caches.delete(key))
         )
       ),
@@ -45,10 +45,10 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put('./?app=23', copy));
+          caches.open(CACHE).then(cache => cache.put('./?app=24', copy));
           return response;
         })
-        .catch(() => caches.match('./?app=23'))
+        .catch(() => caches.match('./?app=24'))
     );
     return;
   }
@@ -66,4 +66,5 @@ self.addEventListener('fetch', event => {
     )
   );
 });
+
 
